@@ -1,6 +1,7 @@
-from bs4 import BeautifulSoup as soup
-from urllib.request import Request, urlopen, urlretrieve
 from urllib.error import URLError
+from urllib.request import Request, urlopen, urlretrieve
+
+from bs4 import BeautifulSoup as soup
 from flask import Flask, render_template
 from models import Reply
 

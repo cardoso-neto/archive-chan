@@ -1,5 +1,8 @@
+
 import requests
 from flask import Flask, render_template
+from requests.exceptions import Timeout
+
 from .extractor import Extractor
 from models import Reply
 from resources.database.db_interface import Database
@@ -19,9 +22,9 @@ class FourChanAPIE(Extractor):
 
     def get_data(self, thread, params):
         """
-        Get JSON and parse replies from 4chan API and
-        writes to html_file. Calls download if preseve
-        is True.
+        Get JSON, parse replies from 4chan API, and write to html_file.
+
+        Calls download if preseve is True.
         """
         app = Flask('archive-chan', template_folder='./assets/templates/')
 
