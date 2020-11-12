@@ -5,12 +5,11 @@ import signal
 from multiprocessing import Pool
 from time import time
 
-import requests
-
 from extractors.extractor import Extractor
 from extractors.fourchan import FourChanE
 from extractors.fourchan_api import FourChanAPIE
 from models import boards, Params, Thread
+from safe_requests_session import RetrySession
 
 
 params = Params()
@@ -101,7 +100,7 @@ def feeder(url):
     # a board /name/ (only from 4chan)
     elif url in boards:
         url_api = "https://a.4cdn.org/{}/threads.json".format(url)
-        r = requests.get(url_api)
+        r = RetrySession().get(url_api)
         if r.status_code == 200:
             data = r.json()
             for page in data:

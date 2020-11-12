@@ -1,11 +1,11 @@
 
 import requests
 from flask import Flask, render_template
-from requests.exceptions import Timeout
 
 from .extractor import Extractor
 from models import Reply
 from resources.database.db_interface import Database
+from safe_requests_session import RetrySession
 
 
 class FourChanAPIE(Extractor):
@@ -28,12 +28,15 @@ class FourChanAPIE(Extractor):
         """
         app = Flask('archive-chan', template_folder='./assets/templates/')
 
-        r = requests.get("https://a.4cdn.org/{}/thread/{}.json".format(thread.board, thread.tid))
-        self.thread_data = None
-        if(r.status_code == requests.codes.ok):
-            self.thread_data = r.json()
-        else:
+        r = RetrySession().get(
+            f"https://a.4cdn.org/{thread.board}/thread/{thread.tid}.json",
+            timeout=16,
+        )
+
+        if r.status_code != requests.codes.ok:
             return
+
+        self.thread_data = r.json()
 
         op_info = self.getOP(params, thread)
         replies = self.getReplyWrite(params, thread)
@@ -94,11 +97,10 @@ class FourChanAPIE(Extractor):
         return replies
 
     def update_boards(self):
-        r = requests.get("https://a.4cdn.org/boards.json")
-        if(r.status_code == requests.codes.ok):
-            boards = r.json()
-        else:
+        r = RetrySession().get("https://a.4cdn.org/boards.json")
+        if r.status_code != requests.codes.ok:
             return
+        boards = r.json()
 
         keys = ["board", "title", "ws_board", "per_page", "pages",
                 "max_filesize", "max_webm_filesize", "max_comment_chars",
