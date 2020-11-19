@@ -105,7 +105,7 @@ def feeder(url):
             data = r.json()
             for page in data:
                 for thread in page["threads"]:
-                    processes.append("http://boards.4chan.org/{}/thread/{}".format(url, thread["no"]))
+                    processes.append("https://boards.4chan.org/{}/thread/{}".format(url, thread["no"]))
         else:
             print("Invalid request:", url)
     # single thread url

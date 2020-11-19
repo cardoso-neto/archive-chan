@@ -2,7 +2,7 @@ import sys
 from abc import abstractmethod
 from pathlib import Path
 
-from bs4 import BeautifulSoup as soup
+from bs4 import BeautifulSoup as Soup
 from flask import Flask, render_template
 
 from safe_requests_session import RetrySession
@@ -37,9 +37,10 @@ class Extractor:
 
         page_html = self.get_page(thread.url)
         if page_html is None:
+            print(f"Error on {thread.tid}. No HTML.")
             return
 
-        page_soup = soup(page_html, "lxml")
+        page_soup = Soup(page_html, "lxml")
         op_info = self.getOP(page_soup, params, thread)
         replies = self.getReplyWrite(page_soup, params, thread)
 
@@ -60,12 +61,11 @@ class Extractor:
             if file_path.is_file():
                 response = requests_session.head(path, timeout=8)
                 size_on_the_server = response.headers.get("content-length", 0)
-                print(file_path.stat().st_size, size_on_the_server)
                 if file_path.stat().st_size == size_on_the_server:
                     return
             if params.verbose:
                 print("Downloading image:", path, name)
-            response = requests_session.get(path, timeout=240)
+            response = requests_session.get(path, timeout=16)
             with open(file_path, "wb") as output:
                 output.write(response.content)
         except Exception as e:
