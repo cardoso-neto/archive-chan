@@ -49,13 +49,13 @@ class Extractor:
             with open("threads/{}/{}.html".format(thread.board, thread.tid), "w+") as html_file:
                 html_file.write(rendered)
 
-    def download(self, path, name, params, retries=0):
+    def download(self, path, folder, name, params, retries=0):
         """
         Donwload file from `path` to `name`.
 
         If it fails, retry until total retries reached.
         """
-        file_path = Path('{}/{}'.format(params.path_to_download, name))
+        file_path = folder / name
         requests_session = RetrySession()
         try:
             if file_path.is_file():

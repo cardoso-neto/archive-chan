@@ -51,15 +51,15 @@ class FourChanAPIE(Extractor):
             print(e)
             return
 
-        thread_html_page_path = f"threads/{thread.board}/{thread.tid}.html"
+        html_page_path = params.path_to_download / thread.board / f"{thread.tid}.html"
         op_info = self.getOP(params, thread)
         replies = self.getReplyWrite(params, thread, media=False)
         self.render_and_save_html(
-            thread_html_page_path, thread=thread, op=op_info, replies=replies
+            html_page_path, thread=thread, op=op_info, replies=replies
         )
         replies = self.getReplyWrite(params, thread, media=True)
         self.render_and_save_html(
-            thread_html_page_path, thread=thread, op=op_info, replies=replies
+            html_page_path, thread=thread, op=op_info, replies=replies
         )
 
     def get_post_with_media(self, post: dict, thread: Thread, params) -> Reply:
@@ -68,8 +68,9 @@ class FourChanAPIE(Extractor):
                 thread.board, post["tim"], post["ext"]
             )
             image_filename = "{}{}".format(post["filename"], post["ext"])
+            folder_path = params.path_to_download / thread.board / thread.tid
             if params.preserve:
-                self.download(post["img_src"], image_filename, params)
+                self.download(post["img_src"], folder_path, image_filename, params)
                 post["img_src"] = '{}/{}'.format(thread.tid, image_filename)
         post["board"] = thread.board
         post["preserved"] = params.preserve
