@@ -1,14 +1,16 @@
-from multiprocessing import Pool
-from time import time
+import argparse
 import os
 import re
 import signal
-import argparse
-import requests
-from models import Thread, boards, Params
+from multiprocessing import Pool
+from time import time
+
 from extractors.extractor import Extractor
 from extractors.fourchan import FourChanE
 from extractors.fourchan_api import FourChanAPIE
+from models import boards, Params, Thread
+from safe_requests_session import RetrySession
+
 
 params = Params()
 
@@ -20,9 +22,9 @@ def parse_input():
     """
 
     parser = argparse.ArgumentParser(description="Archives 4chan threads")
-    parser.add_argument("Thread", help="Enter the link to the 4chan thread")
-    parser.add_argument("-p", "--preserve_files", help="Save images and video files locally", action="store_true")
-    parser.add_argument("-r", "--retries", help="Set total number of retries if a download fails")
+    parser.add_argument("Thread", help="Link to the 4chan thread or the name of the board")
+    parser.add_argument("-p", "--preserve_files", help="Save images and video files locally?", action="store_true")
+    parser.add_argument("-r", "--retries", help="Total number of retries if a download fails")
     parser.add_argument("--posts", help="Number of posts to download")
     parser.add_argument("-v", "--verbose", help="Print more information on each post", action="store_true")
     parser.add_argument("--use_db", help="Stores threads into a database, this is experimental", action="store_true")
@@ -47,8 +49,7 @@ def parse_input():
         try:
             params.total_posts = int(args.posts)
         except ValueError:
-            print("Number of posts must be an integer.")
-            os.sys.exit(1)
+            raise ValueError("Number of posts must be an integer.")
 
     if args.use_db:
         params.use_db = True
@@ -88,25 +89,23 @@ def archive(thread_url):
 
 def feeder(url):
     """
-    Checks the type of input and creates list of urls
-    which are then used to call archive.
+    Check the type of input and create a list of urls
+    which are then used to call archive().
     """
-
     processes = []
     # list of thread urls
     if ".txt" in url:
         with open(url, "r") as f:
-            for thread_url in f:
-                processes.append(thread_url.strip())
-    # a board (only gets from 4chan)
+            processes.extend(map(str.strip, f))
+    # a board /name/ (only from 4chan)
     elif url in boards:
         url_api = "https://a.4cdn.org/{}/threads.json".format(url)
-        r = requests.get(url_api)
+        r = RetrySession().get(url_api)
         if r.status_code == 200:
             data = r.json()
             for page in data:
                 for thread in page["threads"]:
-                    processes.append("http://boards.4chan.org/{}/thread/{}".format(url, thread["no"]))
+                    processes.append("https://boards.4chan.org/{}/thread/{}".format(url, thread["no"]))
         else:
             print("Invalid request:", url)
     # single thread url

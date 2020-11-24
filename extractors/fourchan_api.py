@@ -1,101 +1,122 @@
+
 import requests
+from typing import List
 from flask import Flask, render_template
+
 from .extractor import Extractor
-from models import Reply
+from models import Reply, Thread
 from resources.database.db_interface import Database
+from safe_requests_session import RetrySession
+
+
+def get_thread_data(board: str, thread_id: str) -> dict:
+    r = RetrySession().get(
+        f"https://a.4cdn.org/{board}/thread/{thread_id}.json", timeout=16
+    )
+    if r.status_code != requests.codes.ok:
+        print(f"Skip {thread_id} due to error {r.status_code}.")
+        raise Exception(f"Thread {thread_id}: error {r.status_code}.")
+    return r.json()
 
 
 class FourChanAPIE(Extractor):
     VALID_URL = r'https?://boards.(4channel|4chan).org/(?P<board>[\w-]+)/thread/(?P<thread>[0-9]+)'
 
     def __init__(self):
-        self.thread_data = None
+        super().__init__()
+        self.app = Flask('archive-chan', template_folder='./assets/templates/')
+        self.thread_data: dict
         self.db = Database()
 
-    def extract(self, thread, params):
-        if params.use_db:
-            self.update_boards()
-        self.get_data(thread, params)
-
-    def get_data(self, thread, params):
-        """
-        Get JSON and parse replies from 4chan API and
-        writes to html_file. Calls download if preseve
-        is True.
-        """
-        app = Flask('archive-chan', template_folder='./assets/templates/')
-
-        r = requests.get("https://a.4cdn.org/{}/thread/{}.json".format(thread.board, thread.tid))
-        self.thread_data = None
-        if(r.status_code == requests.codes.ok):
-            self.thread_data = r.json()
-        else:
-            return
-
-        op_info = self.getOP(params, thread)
-        replies = self.getReplyWrite(params, thread)
-
-        with app.app_context():
-            rendered = render_template('thread.html', thread=thread, op=op_info, replies=replies)
-            with open("threads/{}/{}.html".format(thread.board, thread.tid), "w+", encoding='utf-8') as html_file:
+    def render_and_save_html(self, output_path: str, **kwargs):
+        with self.app.app_context():
+            rendered = render_template('thread.html', **kwargs)
+            with open(output_path, "w", encoding='utf-8') as html_file:
                 html_file.write(rendered)
 
-    def getOP(self, params, thread):
-        op_post = self.thread_data["posts"][0]
+    def extract(self, thread: Thread, params):
+        """
+        Get JSON from 4chan API, parse replies, and write to html_file.
 
-        if "tim" in op_post.keys():
-            op_post["img_src"] = "https://i.4cdn.org/{}/{}{}".format(thread.board, op_post["tim"], op_post["ext"])
-            op_img_text = "{}{}".format(op_post["filename"], op_post["ext"])
-
-            if params.preserve:
-                self.download(op_post["img_src"], op_img_text, params)
-                op_post["img_src"] = '{}/{}'.format(thread.tid, op_img_text)
-
-        if params.verbose:
-            print("Downloading post:", op_post["no"], "posted on", op_post["now"])
-
-        op_post["board"] = thread.board
-        op_post["preserved"] = params.preserve
-        p1 = Reply(op_post)
+        It's a two pass approach. First all text from a thread is saved.
+        Then on the second pass all media is parsed.
+        The media is downloaded and saved if preserve is True.
+        """
         if params.use_db:
-            self.db.insert_reply(p1)
-        return p1
+            self.update_boards()
 
-    def getReplyWrite(self, params, thread):
-        reply_post = self.thread_data["posts"][1:]
+        try:
+            self.thread_data = get_thread_data(thread.board, thread.tid)
+        except Exception as e:
+            print(e)
+            return
 
-        replies = []
-        total_posts = len(reply_post)
+        thread_html_page_path = f"threads/{thread.board}/{thread.tid}.html"
+        op_info = self.getOP(params, thread)
+        replies = self.getReplyWrite(params, thread, media=False)
+        self.render_and_save_html(
+            thread_html_page_path, thread=thread, op=op_info, replies=replies
+        )
+        replies = self.getReplyWrite(params, thread, media=True)
+        self.render_and_save_html(
+            thread_html_page_path, thread=thread, op=op_info, replies=replies
+        )
+
+    def get_post_with_media(self, post: dict, thread: Thread, params) -> Reply:
+        if "tim" in post:
+            post["img_src"] = "https://i.4cdn.org/{}/{}{}".format(
+                thread.board, post["tim"], post["ext"]
+            )
+            image_filename = "{}{}".format(post["filename"], post["ext"])
+            if params.preserve:
+                self.download(post["img_src"], image_filename, params)
+                post["img_src"] = '{}/{}'.format(thread.tid, image_filename)
+        post["board"] = thread.board
+        post["preserved"] = params.preserve
+        reply = Reply(post)
+        return reply
+
+    def get_post(self, post: dict, thread: Thread, params) -> Reply:
+        if params.verbose:
+            print("Downloading post text:", post["no"], "from", post["now"])
+        post["board"] = thread.board
+        post["preserved"] = False
+        reply = Reply(post)
+        return reply
+
+    def getOP(self, params, thread: Thread):
+        op_post = self.thread_data["posts"][0]
+        reply = self.get_post_with_media(op_post, thread, params)
+        if params.use_db:
+            self.db.insert_reply(reply)
+        return reply
+
+    def getReplyWrite(self, params, thread: Thread, media: bool) -> List[Reply]:
+        reply_posts = self.thread_data["posts"][1:]
+        total_posts = len(reply_posts)
         if params.total_posts:
-            total_posts = min(params.total_posts, len(reply_post))
-
-        for i in range(0, total_posts):
-            reply = reply_post[i]
-
-            if "tim" in reply.keys():
-                reply["img_src"] = "https://i.4cdn.org/{}/{}{}".format(thread.board, reply["tim"], reply["ext"])
-                reply_img_text = "{}{}".format(reply["filename"], reply["ext"])
-                if params.preserve:
-                    self.download(reply["img_src"], reply_img_text, params)
-                    reply["img_src"] = '{}/{}'.format(thread.tid, reply_img_text)
-
-            if params.verbose:
-                print("Downloading reply:", reply["no"], "replied on", reply["now"])
-
-            reply["board"] = thread.board
-            reply["preserved"] = params.preserve
-            reply_info = Reply(reply)
-            replies.append(reply_info)
-            if params.use_db:
-                self.db.insert_reply(reply_info)
+            total_posts = params.total_posts
+        if media:
+            replies = [
+                self.get_post_with_media(reply, thread, params)
+                for reply in reply_posts[:total_posts]
+            ]
+        else:
+            replies = [
+                self.get_post(reply, thread, params)
+                for reply in reply_posts[:total_posts]
+            ]
+        if params.use_db:
+            for reply in replies:
+                self.db.insert_reply(reply)
         return replies
 
     def update_boards(self):
-        r = requests.get("https://a.4cdn.org/boards.json")
-        if(r.status_code == requests.codes.ok):
-            boards = r.json()
-        else:
+        r = RetrySession().get("https://a.4cdn.org/boards.json")
+        if r.status_code != requests.codes.ok:
+            print(f"Could not update boards due to error {r.status_code}.")
             return
+        boards = r.json()
 
         keys = ["board", "title", "ws_board", "per_page", "pages",
                 "max_filesize", "max_webm_filesize", "max_comment_chars",
