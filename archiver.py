@@ -1,4 +1,3 @@
-import os
 import re
 import signal
 from argparse import ArgumentParser
@@ -10,6 +9,7 @@ from typing import Callable, List, Iterable, Optional
 from extractors import Extractor, FourChanAPIE, FourChanE
 from models import boards, Params, Thread
 from safe_requests_session import RetrySession
+from utils import safely_create_dir
 
 
 params = Params()
@@ -52,7 +52,7 @@ def parse_input():
     params.verbose = args.verbose
     params.total_posts = args.posts
     params.use_db = args.use_db
-    params.path_to_download = args.path
+    params.thread_folder = args.path
     return args
 
 
@@ -77,11 +77,10 @@ def archive(thread_url):
     board = match.group('board')
     thread_id = match.group('thread')
     thread = Thread(thread_id, board, thread_url)
-
-    thread_folder_path = params.path_to_download.joinpath(thread.board, thread.tid)
-    if not thread_folder_path.is_dir():
-        thread_folder_path.mkdir(parents=True, exist_ok=True)
-
+    params.thread_folder = params.thread_folder.joinpath(
+        thread.board, thread.tid
+    )
+    safely_create_dir(params.thread_folder)
     if params.verbose:
         print("Downloading thread:", thread.tid)
     extractor.extract(thread, params)

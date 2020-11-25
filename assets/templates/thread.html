@@ -2,11 +2,11 @@
 <html>
 <head>
 	<meta charset="utf-8"/>
-    <link rel="stylesheet" href="../../assets/css/{{ thread.css }}">
-    <link rel="stylesheet" href="../../assets/css/styles.css">
-    <link rel="stylesheet" href="../../assets/css/flags.css">
-	<link rel="shortcut icon" type="image/ico" href="../../assets/favicon/{{ thread.fav }}"/>
-    <script type="text/javascript" src="../../assets/js/backlink.js"></script>	
+    <link rel="stylesheet" href="../../../assets/css/{{ thread.css }}">
+    <link rel="stylesheet" href="../../../assets/css/styles.css">
+    <link rel="stylesheet" href="../../../assets/css/flags.css">
+	<link rel="shortcut icon" type="image/ico" href="../../../assets/favicon/{{ thread.fav }}"/>
+    <script type="text/javascript" src="../../../assets/js/backlink.js"></script>
     <title>/{{ thread.board }}/ {% if op.sub != "" %}- {{ op.sub }} {% endif %} - {{ thread.board_name }}</title>
 </head>
 <body>
@@ -32,13 +32,13 @@
                     </div>
                     {% if op.tim != 0 %}
                         {% if (op.ext == '.jpg') or (op.ext == '.png') or (op.ext == '.gif') %}
-                            <a href="{{ op.img_src }}" class="fileThumb" target="_blank"> 
+                            <a href="{{ op.img_src }}" class="fileThumb" target="_blank">
                                 <img src="{{ op.img_src }}" style="max-height: 250px">
                             </a>
-                        {% elif op.ext == '.webm' %}        
-                            <a href="{{ op.img_src }}" class="fileThumb" target="_blank"> 
+                        {% elif op.ext == '.webm' %}
+                            <a href="{{ op.img_src }}" class="fileThumb" target="_blank">
                                 <video style="max-width: 426px; max-height: 240px;" class="expandedWebm"controls>
-                                    <source src="{{ op.img_src }}" type="video/webm"> 
+                                    <source src="{{ op.img_src }}" type="video/webm">
                                 </video>
                             </a>
                         {% endif %}
@@ -57,7 +57,7 @@
                             <span class="flag flag-{{ op.country|lower }}" title="{{ op.country_name }}"></span>
                         {% endif %}
                         {% if op.troll_country != "" %}
-                            <img src="../../assets/image/country/troll/{{ op.troll_country|lower }}.gif" alt="{{ op.troll_country }}" title="{{ reply.country_name }}" class="countryFlag">
+                            <img src="../../../assets/image/country/troll/{{ op.troll_country|lower }}.gif" alt="{{ op.troll_country }}" title="{{ reply.country_name }}" class="countryFlag">
                         {% endif %}
                     </span>
                     <span class="dateTime">{{ op.now }}</span>
@@ -81,7 +81,7 @@
                                 <span class="flag flag-{{ reply.country|lower }}" title="{{ reply.country_name }}"></span>
                             {% endif %}
                             {% if reply.troll_country != "" %}
-                                <img src="../../assets/image/country/troll/{{ reply.troll_country|lower }}.gif" alt="{{ reply.troll_country }}" title="{{ reply.country_name }}" class="countryFlag">
+                                <img src="../../../assets/image/country/troll/{{ reply.troll_country|lower }}.gif" alt="{{ reply.troll_country }}" title="{{ reply.country_name }}" class="countryFlag">
                             {% endif %}
                         </span>
                         <span class="dateTime">{{ reply.now }}</span>
@@ -106,13 +106,13 @@
                                 </div>
                                 <a href="{{ reply.img_src}}" class="fileThumb" target="_blank">
                                     <video style="max-width: 426px; max-height: 240px;" class="expandedWebm"controls>
-                                        <source src="{{ reply.img_src }}" type="video/webm"> 
+                                        <source src="{{ reply.img_src }}" type="video/webm">
                                     </video>
                                 </a>
                             </div>
                         {% endif %}
                     {% endif %}
-                    
+
                     {{ reply.com|safe }}
                 </div>
             </div>

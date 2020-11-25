@@ -5,6 +5,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup as Soup
 from flask import Flask, render_template
 
+from models import Params
 from safe_requests_session import RetrySession
 
 
@@ -49,31 +50,37 @@ class Extractor:
             with open("threads/{}/{}.html".format(thread.board, thread.tid), "w+", encoding='utf-8') as html_file:
                 html_file.write(rendered)
 
-    def download(self, path, folder, name, params, retries=0):
+    def download(
+        self,
+        url: str,
+        file_path: Path,
+        verbose: bool = False,
+        max_retries: int = 3,
+        num_retry: int = 0,
+    ):
         """
-        Donwload file from `path` to `name`.
+        Donwload file from `url` to `file_path`.
 
         If it fails, retry until total retries reached.
         """
-        file_path = folder / name
         requests_session = RetrySession()
         try:
             if file_path.is_file():
-                response = requests_session.head(path, timeout=8)
+                response = requests_session.head(url, timeout=8)
                 size_on_the_server = response.headers.get("content-length", 0)
                 if file_path.stat().st_size == size_on_the_server:
                     return
-            if params.verbose:
-                print("Downloading image:", path, name)
-            response = requests_session.get(path, timeout=16)
+            if verbose:
+                print("Downloading image:", url, file_path.name)
+            response = requests_session.get(url, timeout=16)
             with open(file_path, "wb") as output:
                 output.write(response.content)
         except Exception as e:
-            if params.total_retries > retries:
+            if max_retries > num_retry:
                 print(e, file=sys.stderr)
-                print(f"Retry #{retries}...")
-                retries += 1
-                self.download(path, name, params, retries)
+                print(f"Retry #{num_retry}...")
+                num_retry += 1
+                self.download(url, file_path, verbose, max_retries, num_retry)
 
     @abstractmethod
     def getOP(self, page_soup, params, thread):

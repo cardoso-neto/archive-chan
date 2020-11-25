@@ -1,12 +1,16 @@
 
-import requests
+from pathlib import Path
 from typing import List
+
+import requests
 from flask import Flask, render_template
+from superjson import json
 
 from .extractor import Extractor
-from models import Reply, Thread
+from models import Params, Reply, Thread
 from resources.database.db_interface import Database
 from safe_requests_session import RetrySession
+from utils import safely_create_dir
 
 
 def get_thread_data(board: str, thread_id: str) -> dict:
@@ -28,7 +32,7 @@ class FourChanAPIE(Extractor):
         self.thread_data: dict
         self.db = Database()
 
-    def render_and_save_html(self, output_path: str, **kwargs):
+    def render_and_save_html(self, output_path: Path, **kwargs):
         with self.app.app_context():
             rendered = render_template('thread.html', **kwargs)
             with open(output_path, "w", encoding='utf-8') as html_file:
@@ -50,28 +54,45 @@ class FourChanAPIE(Extractor):
         except Exception as e:
             print(e)
             return
-
-        html_page_path = params.path_to_download / thread.board / f"{thread.tid}.html"
+        json.dump(
+            self.thread_data,
+            str(params.thread_folder / "thread.json"),
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+            overwrite=True,
+            verbose=params.verbose,
+        )
         op_info = self.getOP(params, thread)
         replies = self.getReplyWrite(params, thread, media=False)
+        html_page_path = params.thread_folder / "no-media-index.html"
         self.render_and_save_html(
             html_page_path, thread=thread, op=op_info, replies=replies
         )
         replies = self.getReplyWrite(params, thread, media=True)
+        html_page_path = params.thread_folder / "index.html"
         self.render_and_save_html(
             html_page_path, thread=thread, op=op_info, replies=replies
         )
 
-    def get_post_with_media(self, post: dict, thread: Thread, params) -> Reply:
+    def get_post_with_media(
+        self, post: dict, thread: Thread, params: Params
+    ) -> Reply:
         if "tim" in post:
             post["img_src"] = "https://i.4cdn.org/{}/{}{}".format(
                 thread.board, post["tim"], post["ext"]
             )
-            image_filename = "{}{}".format(post["filename"], post["ext"])
-            folder_path = params.path_to_download / thread.board / thread.tid
+            image_filename = "{}{}".format(post["tim"], post["ext"])
+            media_folder_path = params.thread_folder / "media"
+            safely_create_dir(media_folder_path)
             if params.preserve:
-                self.download(post["img_src"], folder_path, image_filename, params)
-                post["img_src"] = '{}/{}'.format(thread.tid, image_filename)
+                self.download(
+                    post["img_src"],
+                    media_folder_path / image_filename,
+                    params.verbose,
+                    params.total_retries,
+                )
+                post["img_src"] = f"media/{image_filename}"
         post["board"] = thread.board
         post["preserved"] = params.preserve
         reply = Reply(post)
