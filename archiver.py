@@ -52,7 +52,7 @@ def parse_input():
     params.verbose = args.verbose
     params.total_posts = args.posts
     params.use_db = args.use_db
-    params.thread_folder = args.path
+    params.path_to_download = args.path
     return args
 
 
@@ -77,13 +77,15 @@ def archive(thread_url):
     board = match.group('board')
     thread_id = match.group('thread')
     thread = Thread(thread_id, board, thread_url)
-    params.thread_folder = params.thread_folder.joinpath(
+    thread_folder = params.path_to_download.joinpath(
         thread.board, thread.tid
     )
-    safely_create_dir(params.thread_folder)
+    safely_create_dir(thread_folder)
     if params.verbose:
         print("Downloading thread:", thread.tid)
-    extractor.extract(thread, params)
+    extractor.extract(
+        thread, params, thread_folder, params.use_db, params.verbose
+    )
 
 
 def feeder(url: str, args) -> Optional[List[str]]:
@@ -119,7 +121,7 @@ def feeder(url: str, args) -> Optional[List[str]]:
             data = r.json()
             if args.verbose:
                 print(f"Found {len(data)} archived threads.")
-            for thread_id in data:
+            for thread_id in sorted(data):  # oldest threads first
                 thread_urls.append(f"https://boards.4chan.org/{url}/thread/{thread_id}")
     # single thread url
     else:

@@ -84,7 +84,7 @@ class Params():
     preserve = False
     total_retries = 5
     total_posts = None
-    thread_folder = './'
+    path_to_download = './'
     use_db = False
 
     def __init__(self, *args, **kwargs):

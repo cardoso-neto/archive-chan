@@ -1,4 +1,4 @@
-
+import os
 from pathlib import Path
 from typing import List
 
@@ -38,7 +38,14 @@ class FourChanAPIE(Extractor):
             with open(output_path, "w", encoding='utf-8') as html_file:
                 html_file.write(rendered)
 
-    def extract(self, thread: Thread, params):
+    def extract(
+        self,
+        thread: Thread,
+        params: Params,
+        thread_folder: Path,
+        use_db: bool = False,
+        verbose: bool = False,
+    ):
         """
         Get JSON from 4chan API, parse replies, and write to html_file.
 
@@ -46,7 +53,10 @@ class FourChanAPIE(Extractor):
         Then on the second pass all media is parsed.
         The media is downloaded and saved if preserve is True.
         """
-        if params.use_db:
+        self.thread_folder = thread_folder
+        self.use_db = use_db
+        self.verbose = verbose
+        if self.use_db:
             self.update_boards()
 
         try:
@@ -56,21 +66,21 @@ class FourChanAPIE(Extractor):
             return
         json.dump(
             self.thread_data,
-            str(params.thread_folder / "thread.json"),
+            str(self.thread_folder / "thread.json"),
             indent=2,
             sort_keys=True,
             ensure_ascii=False,
             overwrite=True,
-            verbose=params.verbose,
+            verbose=self.verbose,
         )
         op_info = self.getOP(params, thread)
         replies = self.getReplyWrite(params, thread, media=False)
-        html_page_path = params.thread_folder / "no-media-index.html"
+        html_page_path = self.thread_folder / "no-media-index.html"
         self.render_and_save_html(
             html_page_path, thread=thread, op=op_info, replies=replies
         )
         replies = self.getReplyWrite(params, thread, media=True)
-        html_page_path = params.thread_folder / "index.html"
+        html_page_path = self.thread_folder / "index.html"
         self.render_and_save_html(
             html_page_path, thread=thread, op=op_info, replies=replies
         )
@@ -78,28 +88,45 @@ class FourChanAPIE(Extractor):
     def get_post_with_media(
         self, post: dict, thread: Thread, params: Params
     ) -> Reply:
+        post["board"] = thread.board
+        post["preserved"] = params.preserve
         if "tim" in post:
             post["img_src"] = "https://i.4cdn.org/{}/{}{}".format(
                 thread.board, post["tim"], post["ext"]
             )
-            image_filename = "{}{}".format(post["tim"], post["ext"])
-            media_folder_path = params.thread_folder / "media"
-            safely_create_dir(media_folder_path)
             if params.preserve:
+                media_folder_path: Path = self.thread_folder / "media"
+                safely_create_dir(media_folder_path)
+                media_filename: str = f"{post['tim']}{post['ext']}"
+                image_4chan_url = post["img_src"]
+                post["img_src"] = f"media/{media_filename}"
+                media_file_path = media_folder_path / media_filename
+                if media_file_path.is_file():
+                    if media_file_path.stat().st_size == post["fsize"]:
+                        media_file_md5_path = media_file_path.parent.joinpath(
+                            f"{media_file_path.stem}.md5"
+                        )
+                        command = f"openssl md5 -binary {str(media_file_path)}"
+                        command += " | openssl base64"
+                        command += f" > {str(media_file_md5_path)}"
+                        os.system(command)
+                        with open(media_file_md5_path) as media_file_md5_file:
+                            calculated_md5_digest = media_file_md5_file.read()
+                        media_file_md5_path.unlink()
+                        if calculated_md5_digest.rstrip("\n") == post["md5"]:
+                            if self.verbose:
+                                print(f"{media_file_path.name!r} already downloaded.")
+                            return Reply(post)
                 self.download(
-                    post["img_src"],
-                    media_folder_path / image_filename,
-                    params.verbose,
+                    image_4chan_url,
+                    media_file_path,
+                    self.verbose,
                     params.total_retries,
                 )
-                post["img_src"] = f"media/{image_filename}"
-        post["board"] = thread.board
-        post["preserved"] = params.preserve
-        reply = Reply(post)
-        return reply
+        return Reply(post)
 
-    def get_post(self, post: dict, thread: Thread, params) -> Reply:
-        if params.verbose:
+    def get_post(self, post: dict, thread: Thread) -> Reply:
+        if self.verbose:
             print("Downloading post text:", post["no"], "from", post["now"])
         post["board"] = thread.board
         post["preserved"] = False
@@ -109,7 +136,7 @@ class FourChanAPIE(Extractor):
     def getOP(self, params, thread: Thread):
         op_post = self.thread_data["posts"][0]
         reply = self.get_post_with_media(op_post, thread, params)
-        if params.use_db:
+        if self.use_db:
             self.db.insert_reply(reply)
         return reply
 
@@ -125,10 +152,10 @@ class FourChanAPIE(Extractor):
             ]
         else:
             replies = [
-                self.get_post(reply, thread, params)
+                self.get_post(reply, thread)
                 for reply in reply_posts[:total_posts]
             ]
-        if params.use_db:
+        if self.use_db:
             for reply in replies:
                 self.db.insert_reply(reply)
         return replies
