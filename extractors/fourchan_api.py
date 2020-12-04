@@ -10,7 +10,7 @@ from .extractor import Extractor
 from models import Params, Reply, Thread
 from resources.database.db_interface import Database
 from safe_requests_session import RetrySession
-from utils import safely_create_dir
+from utils import count_files_in_dir, safely_create_dir
 
 
 def get_thread_data(board: str, thread_id: str) -> dict:
@@ -53,7 +53,10 @@ class FourChanAPIE(Extractor):
         Then on the second pass all media is parsed.
         The media is downloaded and saved if preserve is True.
         """
+        self.max_retries = params.total_retries
         self.thread_folder = thread_folder
+        self.thread_media_folder = self.thread_folder / "media"
+        self.total_posts = params.total_posts
         self.use_db = use_db
         self.verbose = verbose
         if self.use_db:
@@ -64,9 +67,21 @@ class FourChanAPIE(Extractor):
         except Exception as e:
             print(e)
             return
+
+        json_path = self.thread_folder / "thread.json"
+        if json_path.is_file():
+            old_thread = json.load(str(json_path), verbose=self.verbose)
+            if old_thread["posts"][0]["replies"] == self.thread_data["posts"][0]["replies"]:
+                if self.verbose:
+                    print("No new replies.")
+                downloaded_media_count = count_files_in_dir(self.thread_media_folder)
+                if old_thread["posts"][0]["images"] + 1 == downloaded_media_count:
+                    # + 1 because of the OP image
+                    # what about partially downloaded images or corrupted ones?
+                    return
         json.dump(
             self.thread_data,
-            str(self.thread_folder / "thread.json"),
+            str(json_path),
             indent=2,
             sort_keys=True,
             ensure_ascii=False,
@@ -74,60 +89,63 @@ class FourChanAPIE(Extractor):
             verbose=self.verbose,
         )
         op_info = self.getOP(params, thread)
-        replies = self.getReplyWrite(params, thread, media=False)
+        replies = self.getReplyWrite(thread, media=False)
         html_page_path = self.thread_folder / "no-media-index.html"
         self.render_and_save_html(
             html_page_path, thread=thread, op=op_info, replies=replies
         )
-        replies = self.getReplyWrite(params, thread, media=True)
-        html_page_path = self.thread_folder / "index.html"
-        self.render_and_save_html(
-            html_page_path, thread=thread, op=op_info, replies=replies
-        )
+        if params.preserve:
+            replies = self.getReplyWrite(thread, media=True)
+            html_page_path = self.thread_folder / "index.html"
+            self.render_and_save_html(
+                html_page_path, thread=thread, op=op_info, replies=replies
+            )
 
     def get_post_with_media(
-        self, post: dict, thread: Thread, params: Params
+        self, post: dict, thread: Thread, max_retries: int = 3
     ) -> Reply:
         post["board"] = thread.board
-        post["preserved"] = params.preserve
+        post["preserved"] = True
         if "tim" in post:
-            post["img_src"] = "https://i.4cdn.org/{}/{}{}".format(
+            image_4chan_url = "https://i.4cdn.org/{}/{}{}".format(
                 thread.board, post["tim"], post["ext"]
             )
-            if params.preserve:
-                media_folder_path: Path = self.thread_folder / "media"
-                safely_create_dir(media_folder_path)
-                media_filename: str = f"{post['tim']}{post['ext']}"
-                image_4chan_url = post["img_src"]
-                post["img_src"] = f"media/{media_filename}"
-                media_file_path = media_folder_path / media_filename
-                if media_file_path.is_file():
-                    if media_file_path.stat().st_size == post["fsize"]:
-                        media_file_md5_path = media_file_path.parent.joinpath(
-                            f"{media_file_path.stem}.md5"
-                        )
-                        command = f"openssl md5 -binary {str(media_file_path)}"
-                        command += " | openssl base64"
-                        command += f" > {str(media_file_md5_path)}"
-                        os.system(command)
-                        with open(media_file_md5_path) as media_file_md5_file:
-                            calculated_md5_digest = media_file_md5_file.read()
-                        media_file_md5_path.unlink()
-                        if calculated_md5_digest.rstrip("\n") == post["md5"]:
-                            if self.verbose:
-                                print(f"{media_file_path.name!r} already downloaded.")
-                            return Reply(post)
-                self.download(
-                    image_4chan_url,
-                    media_file_path,
-                    self.verbose,
-                    params.total_retries,
-                )
+            media_folder_path: Path = self.thread_folder / "media"
+            safely_create_dir(media_folder_path)
+            media_filename: str = f"{post['tim']}{post['ext']}"
+            post["img_src"] = f"media/{media_filename}"
+            media_file_path = media_folder_path / media_filename
+            if media_file_path.is_file():
+                if media_file_path.stat().st_size == post["fsize"]:
+                    media_file_md5_path = media_file_path.parent.joinpath(
+                        f"{media_file_path.stem}.md5"
+                    )
+                    command = f"openssl md5 -binary {str(media_file_path)}"
+                    command += " | openssl base64"
+                    command += f" > {str(media_file_md5_path)}"
+                    os.system(command)
+                    with open(media_file_md5_path) as media_file_md5_file:
+                        calculated_md5_digest = media_file_md5_file.read()
+                    media_file_md5_path.unlink()
+                    if calculated_md5_digest.rstrip("\n") == post["md5"]:
+                        if self.verbose:
+                            print(f"{media_file_path.name!r} already downloaded.")
+                        return Reply(post)
+            self.download(
+                image_4chan_url,
+                media_file_path,
+                self.verbose,
+                max_retries,
+            )
         return Reply(post)
 
     def get_post(self, post: dict, thread: Thread) -> Reply:
         if self.verbose:
             print("Downloading post text:", post["no"], "from", post["now"])
+        if "tim" in post:
+            post["img_src"] = "https://i.4cdn.org/{}/{}{}".format(
+                thread.board, post["tim"], post["ext"]
+            )
         post["board"] = thread.board
         post["preserved"] = False
         reply = Reply(post)
@@ -140,14 +158,14 @@ class FourChanAPIE(Extractor):
             self.db.insert_reply(reply)
         return reply
 
-    def getReplyWrite(self, params, thread: Thread, media: bool) -> List[Reply]:
+    def getReplyWrite(self, thread: Thread, media: bool) -> List[Reply]:
         reply_posts = self.thread_data["posts"][1:]
         total_posts = len(reply_posts)
-        if params.total_posts:
-            total_posts = params.total_posts
+        if self.total_posts:
+            total_posts = self.total_posts
         if media:
             replies = [
-                self.get_post_with_media(reply, thread, params)
+                self.get_post_with_media(reply, thread, self.max_retries)
                 for reply in reply_posts[:total_posts]
             ]
         else:

@@ -5,7 +5,6 @@ from pathlib import Path
 from bs4 import BeautifulSoup as Soup
 from flask import Flask, render_template
 
-from models import Params
 from safe_requests_session import RetrySession
 
 
@@ -57,6 +56,7 @@ class Extractor:
         verbose: bool = False,
         max_retries: int = 3,
         num_retry: int = 0,
+        skip_check: bool = True,
     ):
         """
         Donwload file from `url` to `file_path`.
@@ -65,7 +65,7 @@ class Extractor:
         """
         requests_session = RetrySession()
         try:
-            if file_path.is_file():
+            if not skip_check and file_path.is_file():
                 response = requests_session.head(url, timeout=8)
                 size_on_the_server = response.headers.get("content-length", 0)
                 if file_path.stat().st_size == size_on_the_server:
