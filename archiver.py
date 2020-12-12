@@ -1,10 +1,9 @@
-import re
 import signal
 from argparse import ArgumentParser
 from multiprocessing import Pool
 from pathlib import Path
 from time import time
-from typing import Callable, List, Iterable, Optional
+from typing import Callable, List, Iterable, Optional, Tuple, Union
 
 from extractors import Extractor, FourChanAPIE, FourChanE
 from models import boards, Params, Thread
@@ -12,6 +11,7 @@ from safe_requests_session import RetrySession
 from utils import safely_create_dir
 
 
+OptionalConcreteExtractor = Optional[Union[FourChanAPIE, FourChanE]]
 params = Params()
 
 
@@ -56,27 +56,27 @@ def parse_input():
     return args
 
 
-def archive(thread_url):
+def choose_extractor(
+    thread_url: str
+) -> Tuple[OptionalConcreteExtractor, Optional[Thread]]:
     """
-    Get values from the url to create a Thread object.
-    Passes the thread to parse_html to be download.
+    Check for valid urls in Extractor subclasses.
     """
-    match = None
-    # check for valid urls in extractors
-    # for cls in (FourChanAPIE, FourChanE):
-    for cls in Extractor.__subclasses__():
-        extractor = None
-        if re.match(cls.VALID_URL, thread_url):
-            match = re.match(cls.VALID_URL, thread_url)
-            extractor = cls()
+    thread = None
+    extractor: OptionalConcreteExtractor = None
+    for class_ in Extractor.__subclasses__():
+        thread = class_.parse_thread_url(thread_url)
+        if thread:
+            extractor = class_()
+            break
+    return extractor, thread
 
-    if not(match):
+
+def archive(thread_url):
+    extractor, thread = choose_extractor(thread_url)
+    if not extractor:
         print("Improper URL:", thread_url)
         return 1
-
-    board = match.group('board')
-    thread_id = match.group('thread')
-    thread = Thread(thread_id, board, thread_url)
     thread_folder = params.path_to_download.joinpath(
         thread.board, thread.tid
     )

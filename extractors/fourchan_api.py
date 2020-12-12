@@ -78,6 +78,7 @@ class FourChanAPIE(Extractor):
                 if old_thread["posts"][0]["images"] + 1 == downloaded_media_count:
                     # + 1 because of the OP image
                     # what about partially downloaded images or corrupted ones?
+                    # if old_thread.get("archive-chan", {}).get("images-ok", False):
                     return
         json.dump(
             self.thread_data,
@@ -208,3 +209,5 @@ class FourChanAPIE(Extractor):
                 else:
                     values.append(board.get(key, None))
             self.db.insert_board(tuple(values))
+
+

@@ -1,14 +1,29 @@
+import re
 import sys
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Optional
 
 from bs4 import BeautifulSoup as Soup
 from flask import Flask, render_template
 
+from models import Thread
 from safe_requests_session import RetrySession
 
 
-class Extractor:
+class Extractor(ABC):
+    VALID_URL = r''
+
+    @classmethod
+    def parse_thread_url(cls, thread_url: str) -> Optional[Thread]:
+        match_ =  re.match(cls.VALID_URL, thread_url)
+        if not match_:
+            return None
+        board = match_.group('board')
+        thread_id = match_.group('thread')
+        # TODO: what about the chan name? e.g., 8ch, 55chan, 4channel
+        thread = Thread(thread_id, board, thread_url)
+        return thread
 
     @abstractmethod
     def extract(self, thread, params):
