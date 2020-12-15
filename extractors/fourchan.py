@@ -1,13 +1,56 @@
+from bs4 import BeautifulSoup as Soup
+from flask import Flask, render_template
+
 from .extractor import Extractor
 from models import Reply
+from safe_requests_session import RetrySession
 
 
 class FourChanE(Extractor):
+    """
+    Deprecated in favor of using the JSON API.
+    """
     # VALID_URL = r'https?://boards.(4channel|4chan).org/(?P<board>[\w-]+)/thread/(?P<thread>[0-9]+)'
     VALID_URL = r''
 
     def __init__(self):
         pass
+
+    def get_page(self, url):
+        headers={
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+            'Accept-Encoding': 'none',
+            'Accept-Language': 'en-US,en;q=0.8',
+            'Connection': 'keep-alive',
+        }
+        page_html = RetrySession().get(url, headers=headers, timeout=10).text
+        return page_html
+
+    def parse_html(self, thread, params):
+        """
+        Parse html, get soup, and write post and replies to html_file.
+
+        Call download if preserve is True
+        """
+
+        app = Flask('archive-chan', template_folder='./assets/templates/')
+
+        page_html = self.get_page(thread.url)
+        if page_html is None:
+            print(f"Error on {thread.tid}. No HTML.")
+            return
+
+        page_soup = Soup(page_html, "lxml")
+        op_info = self.getOP(page_soup, params, thread)
+        replies = self.getReplyWrite(page_soup, params, thread)
+        self.render_and_save_html(
+            "threads/{}/{}.html".format(thread.board, thread.tid),
+            thread=thread,
+            op=op_info,
+            replies=replies,
+        )
 
     def extract(self, thread, params):
         self.parse_html(thread, params)

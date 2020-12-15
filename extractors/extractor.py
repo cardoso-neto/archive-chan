@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
-from bs4 import BeautifulSoup as Soup
 from flask import Flask, render_template
 
 from models import Thread
@@ -29,42 +28,13 @@ class Extractor(ABC):
     def extract(self, thread, params):
         pass
 
-    def get_page(self, url):
-        headers={
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
-            'Accept-Encoding': 'none',
-            'Accept-Language': 'en-US,en;q=0.8',
-            'Connection': 'keep-alive',
-        }
-        page_html = RetrySession().get(url, headers=headers, timeout=10).text
-        return page_html
-
-    def parse_html(self, thread, params):
-        """
-        Parse html, get soup, and write post and replies to html_file.
-
-        Call download if preserve is True
-        """
-
-        app = Flask('archive-chan', template_folder='./assets/templates/')
-
-        page_html = self.get_page(thread.url)
-        if page_html is None:
-            print(f"Error on {thread.tid}. No HTML.")
-            return
-
-        page_soup = Soup(page_html, "lxml")
-        op_info = self.getOP(page_soup, params, thread)
-        replies = self.getReplyWrite(page_soup, params, thread)
-
-        with app.app_context():
-            rendered = render_template('thread.html', thread=thread, op=op_info, replies=replies)
-            with open("threads/{}/{}.html".format(thread.board, thread.tid), "w+", encoding='utf-8') as html_file:
+    def render_and_save_html(self, output_path: Path, **kwargs):
+        with self.app.app_context():
+            rendered = render_template('thread.html', **kwargs)
+            with open(output_path, "w", encoding='utf-8') as html_file:
                 html_file.write(rendered)
 
-    def download(
+    def download_file(
         self,
         url: str,
         file_path: Path,

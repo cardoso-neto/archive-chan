@@ -32,12 +32,6 @@ class FourChanAPIE(Extractor):
         self.thread_data: dict
         self.db = Database()
 
-    def render_and_save_html(self, output_path: Path, **kwargs):
-        with self.app.app_context():
-            rendered = render_template('thread.html', **kwargs)
-            with open(output_path, "w", encoding='utf-8') as html_file:
-                html_file.write(rendered)
-
     def extract(
         self,
         thread: Thread,
@@ -78,7 +72,7 @@ class FourChanAPIE(Extractor):
                 if old_thread["posts"][0]["images"] + 1 == downloaded_media_count:
                     # + 1 because of the OP image
                     # what about partially downloaded images or corrupted ones?
-                    # if old_thread.get("archive-chan", {}).get("images-ok", False):
+                    # if old_thread.("archive-chan", {}).get("images-ok", False):
                     return
         json.dump(
             self.thread_data,
@@ -108,7 +102,7 @@ class FourChanAPIE(Extractor):
         post["board"] = thread.board
         post["preserved"] = True
         if "tim" in post:
-            image_4chan_url = "https://i.4cdn.org/{}/{}{}".format(
+            media_4chan_url = "https://i.4cdn.org/{}/{}{}".format(
                 thread.board, post["tim"], post["ext"]
             )
             media_folder_path: Path = self.thread_folder / "media"
@@ -132,8 +126,8 @@ class FourChanAPIE(Extractor):
                         if self.verbose:
                             print(f"{media_file_path.name!r} already downloaded.")
                         return Reply(post)
-            self.download(
-                image_4chan_url,
+            self.download_file(
+                media_4chan_url,
                 media_file_path,
                 self.verbose,
                 max_retries,
