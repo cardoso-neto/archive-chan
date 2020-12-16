@@ -7,6 +7,7 @@ from typing import Callable, List, Iterable, Optional, Tuple, Union
 
 from extractors import Extractor, FourChanAPIE, FourChanE
 from models import boards, Params, Thread
+from params import get_args
 from safe_requests_session import RetrySession
 from utils import safely_create_dir
 
@@ -17,35 +18,7 @@ params = Params()
 
 def parse_input():
     """Get user input from the command-line and parse it."""
-    parser = ArgumentParser(description="Archives 4chan threads")
-    parser.add_argument(
-        "thread", help="Link to the 4chan thread or the name of the board."
-    )
-    parser.add_argument(
-        "-p", "--preserve_files", help="Save images and video files locally.", action="store_true")
-    parser.add_argument("--posts", type=int, default=None, help="Number of posts to download")
-    parser.add_argument("-r", "--retries", type=int, default=1, help="Retry -r times if a download fails.")
-    parser.add_argument("-v", "--verbose", help="Verbose logging to stdout.", action="store_true")
-    parser.add_argument("--use_db", help="Stores threads into a database, this is experimental.", action="store_true")
-    parser.add_argument(
-        "-a",
-        "--archived",
-        action="store_true",
-        help="Download threads from the /board/archive/ as well.",
-    )
-    parser.add_argument(
-        "-ao",
-        "--archived_only",
-        action="store_true",
-        help="Download threads from the /board/archive/ INSTEAD.",
-    )
-    parser.add_argument(
-        "--path",
-        type=Path,
-        default="./threads/",
-        help="Path to folder where the threads should be saved.",
-    )
-    args = parser.parse_args()
+    args = get_args()
 
     params.preserve = args.preserve_files
     params.total_retries = args.retries
@@ -86,6 +59,8 @@ def archive(thread_url):
     extractor.extract(
         thread, params, thread_folder, params.use_db, params.verbose
     )
+    if "text_only":
+        pass
 
 
 def feeder(url: str, args) -> Union[str, List[str]]:
