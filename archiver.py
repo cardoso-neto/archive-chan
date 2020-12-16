@@ -88,7 +88,7 @@ def archive(thread_url):
     )
 
 
-def feeder(url: str, args) -> Optional[List[str]]:
+def feeder(url: str, args) -> Union[str, List[str]]:
     """
     Check the type of input and create a list of urls
     which are then used to call archive().
@@ -125,9 +125,8 @@ def feeder(url: str, args) -> Optional[List[str]]:
                 thread_urls.append(f"https://boards.4chan.org/{url}/thread/{thread_id}")
     # single thread url
     else:
-        archive(url)
-    if thread_urls:
-        return thread_urls
+        return url
+    return thread_urls
 
 
 def safe_parallel_run(func: Callable, iterable: Iterable):
@@ -148,8 +147,10 @@ def main():
     start_time = time()
     args = parse_input()
     thread_urls = feeder(args.thread, args)
-    if thread_urls:
+    if isinstance(thread_urls, list) and len(thread_urls):
         safe_parallel_run(archive, thread_urls)
+    elif isinstance(thread_urls, str):  # single thread mode
+        archive(thread_urls)
     print("Time elapsed: %.4fs" % (time() - start_time))
 
 
