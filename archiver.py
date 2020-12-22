@@ -1,7 +1,6 @@
 import signal
-from argparse import ArgumentParser
+from functools import partial
 from multiprocessing import Pool
-from pathlib import Path
 from time import time
 from typing import Callable, List, Iterable, Optional, Tuple, Union
 
@@ -29,9 +28,7 @@ def parse_input():
     return args
 
 
-def choose_extractor(
-    thread_url: str
-) -> Tuple[OptionalConcreteExtractor, Optional[Thread]]:
+def choose_extractor(thread_url: str) -> OptionalConcreteExtractor:
     """
     Check for valid urls in Extractor subclasses.
     """
@@ -40,13 +37,24 @@ def choose_extractor(
     for class_ in Extractor.__subclasses__():
         thread = class_.parse_thread_url(thread_url)
         if thread:
-            extractor = class_()
+            extractor = class_(thread)
             break
-    return extractor, thread
+    return extractor
 
 
-def archive(thread_url):
-    extractor, thread = choose_extractor(thread_url)
+def download_text_data(extractor: OptionalConcreteExtractor) -> List[str]:
+    if extractor is not None:
+        try:
+            extractor.download_thread_data(params.path_to_download)
+        except RuntimeError as e:
+            print(repr(e))
+            return None  # ???
+
+
+
+def archive(thread_url: str):
+    extractor = choose_extractor(thread_url)
+    thread = extractor.thread
     if not extractor:
         print("Improper URL:", thread_url)
         return 1
@@ -59,8 +67,6 @@ def archive(thread_url):
     extractor.extract(
         thread, params, thread_folder, params.use_db, params.verbose
     )
-    if "text_only":
-        pass
 
 
 def feeder(url: str, args) -> Union[str, List[str]]:
@@ -104,18 +110,20 @@ def feeder(url: str, args) -> Union[str, List[str]]:
     return thread_urls
 
 
-def safe_parallel_run(func: Callable, iterable: Iterable):
+def safe_parallel_run(func: Callable, iterable: Iterable) -> Iterable:
     sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
     pool = Pool(processes=4)
     signal.signal(signal.SIGINT, sigint_handler)
+    res = []
     try:
         res = pool.map_async(func, iterable)
         res.get(86400)
     except KeyboardInterrupt:
         print("Terminating download")
         pool.terminate()
-    else:
+    finally:
         pool.close()
+        return res
 
 
 def main():
@@ -123,7 +131,17 @@ def main():
     args = parse_input()
     thread_urls = feeder(args.thread, args)
     if isinstance(thread_urls, list) and len(thread_urls):
-        safe_parallel_run(archive, thread_urls)
+        if args.new_logic:
+            # choose extractors
+            jobs: Iterable[Tuple[OptionalConcreteExtractor, Optional[Thread]]]
+            jobs = [choose_extractor(x) for x in thread_urls]
+            media_urls = [download_text_data(x) for x in jobs]
+            # filter urls with no extractors
+            # download all jsons/htmls/text only
+            # render all threads
+            # download all media
+        else:
+            safe_parallel_run(archive, thread_urls)
     elif isinstance(thread_urls, str):  # single thread mode
         archive(thread_urls)
     print("Time elapsed: %.4fs" % (time() - start_time))

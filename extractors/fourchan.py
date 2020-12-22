@@ -11,7 +11,7 @@ class FourChanE(Extractor):
     Deprecated in favor of using the JSON API.
     """
     # VALID_URL = r'https?://boards.(4channel|4chan).org/(?P<board>[\w-]+)/thread/(?P<thread>[0-9]+)'
-    VALID_URL = r''
+    VALID_URL = r'deprecated'
 
     def __init__(self):
         pass

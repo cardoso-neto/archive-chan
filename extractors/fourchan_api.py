@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import requests
 from flask import Flask, render_template
@@ -13,24 +13,78 @@ from safe_requests_session import RetrySession
 from utils import count_files_in_dir, safely_create_dir
 
 
-def get_thread_data(board: str, thread_id: str) -> dict:
-    r = RetrySession().get(
-        f"https://a.4cdn.org/{board}/thread/{thread_id}.json", timeout=16
-    )
-    if r.status_code != requests.codes.ok:
-        print(f"Skip {thread_id} due to error {r.status_code}.")
-        raise Exception(f"Thread {thread_id}: error {r.status_code}.")
-    return r.json()
-
-
 class FourChanAPIE(Extractor):
     VALID_URL = r'https?://boards.(4channel|4chan).org/(?P<board>[\w-]+)/thread/(?P<thread>[0-9]+)'
+    base_thread_url = "https://boards.4chan.org/{board}/thread/{thread_id}"
 
-    def __init__(self):
+    def __init__(self, thread: Thread = None, verbose: bool = True):
         super().__init__()
+        self.thread = thread
+        self.verbose = verbose
         self.app = Flask('archive-chan', template_folder='./assets/templates/')
         self.thread_data: dict
-        self.db = Database()
+        # self.db = Database()  # I'll end up deprecating this
+
+    @staticmethod
+    def get_thread_data(board: str, thread_id: str) -> dict:
+        r = RetrySession().get(
+            f"https://a.4cdn.org/{board}/thread/{thread_id}.json", timeout=16
+        )
+        if r.status_code != requests.codes.ok:
+            print(f"Skip {thread_id} due to error {r.status_code}.")
+            raise Exception(f"Thread {thread_id}: error {r.status_code}.")
+        return r.json()
+
+    def _load_previous_thread_data(self) -> Optional[dict]:
+        if not self.json_path.is_file():
+            return None
+        return json.load(str(self.json_path), verbose=self.verbose)
+
+    def _no_new_replies(self):
+        if self.json_path.is_file():
+            if self.previous_thread_data["posts"][0]["replies"] == self.thread_data["posts"][0]["replies"]:
+                if self.verbose:
+                    print("No new replies.")
+                return True
+        return False
+
+    def _was_thread_archived(self) -> bool:
+        return self.previous_thread_data["posts"][0]["archived"]
+
+    def _was_thread_404(self) -> bool:
+        try:
+            return self.previous_thread_data["archive-chan"]["404"]
+        except KeyError:
+            return False
+
+    def download_thread_data(self, archive_path: Path):
+        self.thread_folder = archive_path.joinpath(
+            self.thread.board, self.thread.tid
+        )
+        safely_create_dir(self.thread_folder)
+        self.json_path = self.thread_folder / "thread.json"
+        self.previous_thread_data = self._load_previous_thread_data()
+        if self.previous_thread_data is not None:
+            if self._was_thread_archived() or self._was_thread_404():
+                return
+        try:
+            self.thread_data = self.get_thread_data(
+                self.thread.board, self.thread.tid
+            )
+        except Exception as e:
+            msg = f"Could not download {self.thread.id} from the API."
+            raise RuntimeError(f"{msg}\n{repr(e)}")
+        if self._no_new_replies():
+            return
+        json.dump(
+            self.thread_data,
+            str(self.json_path),
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+            overwrite=True,
+            verbose=self.verbose,
+            )
 
     def extract(
         self,
@@ -50,6 +104,7 @@ class FourChanAPIE(Extractor):
         self.max_retries = params.total_retries
         self.thread_folder = thread_folder
         self.thread_media_folder = self.thread_folder / "media"
+        self.json_path = self.thread_folder / "thread.json"
         self.total_posts = params.total_posts
         self.use_db = use_db
         self.verbose = verbose
@@ -57,26 +112,20 @@ class FourChanAPIE(Extractor):
             self.update_boards()
 
         try:
-            self.thread_data = get_thread_data(thread.board, thread.tid)
+            self.thread_data = self.get_thread_data(thread.board, thread.tid)
         except Exception as e:
             print(e)
             return
-
-        json_path = self.thread_folder / "thread.json"
-        if json_path.is_file():
-            old_thread = json.load(str(json_path), verbose=self.verbose)
-            if old_thread["posts"][0]["replies"] == self.thread_data["posts"][0]["replies"]:
-                if self.verbose:
-                    print("No new replies.")
-                downloaded_media_count = count_files_in_dir(self.thread_media_folder)
-                if old_thread["posts"][0]["images"] + 1 == downloaded_media_count:
-                    # + 1 because of the OP image
-                    # what about partially downloaded images or corrupted ones?
-                    # if old_thread.("archive-chan", {}).get("images-ok", False):
-                    return
+        if self._no_new_replies():
+            downloaded_media_count = count_files_in_dir(self.thread_media_folder)
+            if self.previous_thread_data["posts"][0]["images"] + 1 == downloaded_media_count:
+                # + 1 because of the OP image
+                # what about partially downloaded images or corrupted ones?
+                # if old_thread.get("archive-chan", {}).get("images-ok", False):
+                return
         json.dump(
             self.thread_data,
-            str(json_path),
+            str(self.json_path),
             indent=2,
             sort_keys=True,
             ensure_ascii=False,
@@ -203,5 +252,3 @@ class FourChanAPIE(Extractor):
                 else:
                     values.append(board.get(key, None))
             self.db.insert_board(tuple(values))
-
-
