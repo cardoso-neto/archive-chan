@@ -252,3 +252,55 @@ class FourChanAPIE(Extractor):
                 else:
                     values.append(board.get(key, None))
             self.db.insert_board(tuple(values))
+
+    @classmethod
+    def _get_archived_threads_from_board(
+        cls, board: str, verbose: bool
+    ) -> List[str]:
+        api_url = f"https://a.4cdn.org/{board}/archive.json"
+        r = RetrySession().get(api_url)
+        if r.status_code != 200:
+            msg = f"Couldn't retrieve {board}'s archived thread list."
+            raise Exception(msg)
+        data = r.json()
+        if verbose:
+            print(f"Found {len(data)} archived threads.")
+        thread_urls = [
+            cls.base_thread_url.format(board, thread_id)
+            for thread_id in sorted(data)
+        ]
+        return thread_urls
+
+    @classmethod
+    def _get_active_threads_from_board(
+        cls, board: str, verbose: bool
+    ) -> List[str]:
+        api_url = f"https://a.4cdn.org/{board}/threads.json"
+        r = RetrySession().get(api_url)
+        if r.status_code != 200:
+            msg = f"Couldn't retrieve {board}'s active thread list."
+            raise Exception(msg)
+        data = r.json()
+        thread_urls = [
+            cls.base_thread_url.format(board, thread["no"])
+            for page in data
+            for thread in page["threads"]
+        ]
+        if verbose:
+            print(f"Found {len(thread_urls)} active threads.")
+        return thread_urls
+
+    @classmethod
+    def get_threads_from_board(
+        cls, board: str, archived: bool, archived_only: bool, verbose: bool
+    ) -> List[str]:
+        thread_urls = []
+        if not archived_only:
+            thread_urls.extend(
+                cls._get_active_threads_from_board(board, verbose)
+            )
+        if archived or archived_only:
+            thread_urls.extend(
+                cls._get_archived_threads_from_board(board, verbose)
+            )
+        return thread_urls

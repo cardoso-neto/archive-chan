@@ -81,29 +81,9 @@ def feeder(url: str, args) -> Union[str, List[str]]:
             thread_urls.extend(map(str.strip, f))
     # a board /name/ (only from 4chan)
     elif url in boards:
-        if not args.archived_only:
-            api_url = "https://a.4cdn.org/{}/threads.json".format(url)
-            r = RetrySession().get(api_url)
-            if r.status_code != 200:
-                print("Invalid request:", url)
-                exit(1)
-            data = r.json()
-            for page in data:
-                for thread in page["threads"]:
-                    thread_urls.append("https://boards.4chan.org/{}/thread/{}".format(url, thread["no"]))
-            if args.verbose:
-                print(f"Found {len(thread_urls)} active threads.")
-        if args.archived or args.archived_only:
-            api_url = "https://a.4cdn.org/{}/archive.json".format(url)
-            r = RetrySession().get(api_url)
-            if r.status_code != 200:
-                print("Invalid request:", url)
-                exit(1)
-            data = r.json()
-            if args.verbose:
-                print(f"Found {len(data)} archived threads.")
-            for thread_id in sorted(data):  # oldest threads first
-                thread_urls.append(f"https://boards.4chan.org/{url}/thread/{thread_id}")
+        FourChanAPIE.get_threads_from_board(
+            url, args.archived, args.archived_only, args.verbose
+        )
     # single thread url
     else:
         return url
