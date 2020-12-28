@@ -1,5 +1,4 @@
 import signal
-from functools import partial
 from multiprocessing import Pool
 from time import time
 from typing import Callable, List, Iterable, Optional, Tuple, Union
@@ -7,7 +6,6 @@ from typing import Callable, List, Iterable, Optional, Tuple, Union
 from extractors import Extractor, FourChanAPIE, FourChanE
 from models import boards, Params, Thread
 from params import get_args
-from safe_requests_session import RetrySession
 from utils import safely_create_dir
 
 
@@ -19,7 +17,7 @@ def parse_input():
     """Get user input from the command-line and parse it."""
     args = get_args()
 
-    params.preserve = args.preserve_files
+    params.preserve = args.preserve_media
     params.total_retries = args.retries
     params.verbose = args.verbose
     params.total_posts = args.posts
@@ -42,14 +40,27 @@ def choose_extractor(thread_url: str) -> OptionalConcreteExtractor:
     return extractor
 
 
-def download_text_data(extractor: OptionalConcreteExtractor) -> List[str]:
+def download_text_data(
+    extractor: OptionalConcreteExtractor
+) -> OptionalConcreteExtractor:
     if extractor is not None:
         try:
             extractor.download_thread_data(params.path_to_download)
         except RuntimeError as e:
             print(repr(e))
-            return None  # ???
+            return None
+        return extractor
 
+
+def download_media_files(
+    extractor: OptionalConcreteExtractor
+) -> OptionalConcreteExtractor:
+    if extractor is not None:
+        try:
+            extractor.download_thread_media()
+        except Exception as e:
+            raise e
+        return extractor
 
 
 def archive(thread_url: str):
@@ -69,11 +80,10 @@ def archive(thread_url: str):
     )
 
 
-def feeder(url: str, args) -> Union[str, List[str]]:
-    """
-    Check the type of input and create a list of urls
-    which are then used to call archive().
-    """
+def feeder(
+    url: str, archived: bool, archived_only: bool, verbose: bool
+) -> Union[str, List[str]]:
+    """Create and return a list of urls according to the input."""
     thread_urls = []
     # list of thread urls
     if ".txt" in url:
@@ -82,7 +92,7 @@ def feeder(url: str, args) -> Union[str, List[str]]:
     # a board /name/ (only from 4chan)
     elif url in boards:
         FourChanAPIE.get_threads_from_board(
-            url, args.archived, args.archived_only, args.verbose
+            url, archived, archived_only, verbose
         )
     # single thread url
     else:
@@ -109,21 +119,29 @@ def safe_parallel_run(func: Callable, iterable: Iterable) -> Iterable:
 def main():
     start_time = time()
     args = parse_input()
-    thread_urls = feeder(args.thread, args)
+    thread_urls = feeder(
+        args.thread, args.archived, args.archived_only, args.verbose
+    )
+    if isinstance(thread_urls, str):
+        thread_urls = [thread_urls]
     if isinstance(thread_urls, list) and len(thread_urls):
         if args.new_logic:
             # choose extractors
-            jobs: Iterable[Tuple[OptionalConcreteExtractor, Optional[Thread]]]
+            jobs: Iterable[OptionalConcreteExtractor]
             jobs = [choose_extractor(x) for x in thread_urls]
-            media_urls = [download_text_data(x) for x in jobs]
-            # filter urls with no extractors
             # download all jsons/htmls/text only
+            jobs = [download_text_data(x) for x in jobs]
+            if not args.text_only:
+                # download op media only
+                pass  # TODO
+            if args.preserve_media:
+                # download all media
+                jobs = [download_media_files(x) for x in jobs]
             # render all threads
-            # download all media
         else:
             safe_parallel_run(archive, thread_urls)
-    elif isinstance(thread_urls, str):  # single thread mode
-        archive(thread_urls)
+    # elif isinstance(thread_urls, str):  # single thread mode
+    #     archive(thread_urls)
     print("Time elapsed: %.4fs" % (time() - start_time))
 
 

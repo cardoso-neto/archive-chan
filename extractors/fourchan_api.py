@@ -16,14 +16,21 @@ from utils import count_files_in_dir, safely_create_dir
 class FourChanAPIE(Extractor):
     VALID_URL = r'https?://boards.(4channel|4chan).org/(?P<board>[\w-]+)/thread/(?P<thread>[0-9]+)'
     base_thread_url = "https://boards.4chan.org/{board}/thread/{thread_id}"
+    base_media_url = "https://i.4cdn.org/{}/{}{}"
 
     def __init__(self, thread: Thread = None, verbose: bool = True):
         super().__init__()
         self.thread = thread
         self.verbose = verbose
         self.app = Flask('archive-chan', template_folder='./assets/templates/')
-        self.thread_data: dict
+        self._thread_data: dict = None
         # self.db = Database()  # I'll end up deprecating this
+
+    @property
+    def thread_data(self):
+        if self._thread_data is None:
+            self._thread_data = self._load_previous_thread_data()
+        return self._thread_data
 
     @staticmethod
     def get_thread_data(board: str, thread_id: str) -> dict:
@@ -40,20 +47,22 @@ class FourChanAPIE(Extractor):
             return None
         return json.load(str(self.json_path), verbose=self.verbose)
 
-    def _no_new_replies(self):
-        if self.json_path.is_file():
-            if self.previous_thread_data["posts"][0]["replies"] == self.thread_data["posts"][0]["replies"]:
-                if self.verbose:
-                    print("No new replies.")
-                return True
+    def _no_new_replies(self, previous_thread_data, current_thread_data):
+        if (
+            previous_thread_data["posts"][0]["replies"]
+            == current_thread_data["posts"][0]["replies"]
+        ):
+            if self.verbose:
+                print("No new replies.")
+            return True
         return False
 
     def _was_thread_archived(self) -> bool:
-        return self.previous_thread_data["posts"][0]["archived"]
+        return self.thread_data["posts"][0]["archived"]
 
     def _was_thread_404(self) -> bool:
         try:
-            return self.previous_thread_data["archive-chan"]["404"]
+            return self.thread_data["archive-chan"]["404"]
         except KeyError:
             return False
 
@@ -63,21 +72,22 @@ class FourChanAPIE(Extractor):
         )
         safely_create_dir(self.thread_folder)
         self.json_path = self.thread_folder / "thread.json"
-        self.previous_thread_data = self._load_previous_thread_data()
-        if self.previous_thread_data is not None:
+        if self.thread_data is not None:
             if self._was_thread_archived() or self._was_thread_404():
                 return
         try:
-            self.thread_data = self.get_thread_data(
+            self.current_thread_data = self.get_thread_data(
                 self.thread.board, self.thread.tid
             )
         except Exception as e:
             msg = f"Could not download {self.thread.id} from the API."
             raise RuntimeError(f"{msg}\n{repr(e)}")
-        if self._no_new_replies():
+        if self._no_new_replies(
+            self.thread_data, self.current_thread_data
+        ):
             return
         json.dump(
-            self.thread_data,
+            self.current_thread_data,
             str(self.json_path),
             indent=2,
             sort_keys=True,
@@ -85,6 +95,33 @@ class FourChanAPIE(Extractor):
             overwrite=True,
             verbose=self.verbose,
             )
+
+    @classmethod
+    def get_media_urls(cls, posts: List[dict], board: str) -> List[str]:
+        # TODO: type thread_data JSON correctly
+        media_urls = [
+            cls.base_media_url.format(board, post["tim"], post["ext"])
+            for post in posts
+            if "tim" in post
+        ]
+        return media_urls
+
+    def download_thread_media(self):
+        # check for already downloaded media
+        # self.thread_media_folder = self.thread_folder / "media"
+        # downloaded_media_count = count_files_in_dir(self.thread_media_folder)
+        # if self.previous_thread_data["posts"][0]["images"] + 1 == downloaded_media_count:
+        #     # + 1 because of the OP image
+        #     # what about partially downloaded images or corrupted ones?
+        #     # if old_thread.get("archive-chan", {}).get("images-ok", False):
+        #     return
+
+        media_urls = self.get_media_urls(
+            self.thread_data["posts"], self.thread.board
+        )
+        print(media_urls)
+        exit()
+
 
     def extract(
         self,
@@ -116,7 +153,7 @@ class FourChanAPIE(Extractor):
         except Exception as e:
             print(e)
             return
-        if self._no_new_replies():
+        if self._no_new_replies(self.previous_thread_data, self.thread_data):
             downloaded_media_count = count_files_in_dir(self.thread_media_folder)
             if self.previous_thread_data["posts"][0]["images"] + 1 == downloaded_media_count:
                 # + 1 because of the OP image

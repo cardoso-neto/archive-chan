@@ -21,7 +21,7 @@ def get_args():
     )
     parser.add_argument(
         "-p",
-        "--preserve_files",
+        "--preserve_media",
         action="store_true",
         help="Save images and video files locally.",
     )
@@ -43,6 +43,11 @@ def get_args():
         default=1,
         help="Retry -r times if a download fails.",
         type=int,
+    )
+    parser.add_argument(
+        "--text_only",
+        action="store_true",
+        help="Download only HTMLs or JSONs.",
     )
     parser.add_argument(
         "--use_db",
