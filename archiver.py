@@ -35,7 +35,8 @@ def choose_extractor(thread_url: str) -> OptionalConcreteExtractor:
     for class_ in Extractor.__subclasses__():
         thread = class_.parse_thread_url(thread_url)
         if thread:
-            extractor = class_(thread)
+            extractor = class_(thread, params.path_to_download)
+            # TODO: this params.path_to_download does not belong here
             break
     return extractor
 
@@ -45,7 +46,7 @@ def download_text_data(
 ) -> OptionalConcreteExtractor:
     if extractor is not None:
         try:
-            extractor.download_thread_data(params.path_to_download)
+            extractor.download_thread_data()
         except RuntimeError as e:
             print(repr(e))
             return None
@@ -137,6 +138,7 @@ def main():
             if args.preserve_media:
                 # download all media
                 jobs = [download_media_files(x) for x in jobs]
+            # parse posts' text
             # render all threads
         else:
             safe_parallel_run(archive, thread_urls)

@@ -1,6 +1,7 @@
 import os
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import requests
 from flask import Flask, render_template
@@ -13,24 +14,51 @@ from safe_requests_session import RetrySession
 from utils import count_files_in_dir, safely_create_dir
 
 
+@dataclass
+class MediaInfo:
+    tim: str
+    ext: str
+    md5: str
+
+    def __post_init__(self):
+        self.filename = f"{self.tim}{self.ext}"
+
+
 class FourChanAPIE(Extractor):
     VALID_URL = r'https?://boards.(4channel|4chan).org/(?P<board>[\w-]+)/thread/(?P<thread>[0-9]+)'
     base_thread_url = "https://boards.4chan.org/{board}/thread/{thread_id}"
-    base_media_url = "https://i.4cdn.org/{}/{}{}"
+    base_media_url = "https://i.4cdn.org/{}/{}"
 
-    def __init__(self, thread: Thread = None, verbose: bool = True):
+    def __init__(
+        self, thread: Thread, archive_path: Path, verbose: bool = True
+    ):
         super().__init__()
         self.thread = thread
+        self.archive_path = archive_path
         self.verbose = verbose
         self.app = Flask('archive-chan', template_folder='./assets/templates/')
         self._thread_data: dict = None
         # self.db = Database()  # I'll end up deprecating this
 
     @property
-    def thread_data(self):
+    def thread_data(self) -> Optional[dict]:
         if self._thread_data is None:
             self._thread_data = self._load_previous_thread_data()
         return self._thread_data
+
+    @property
+    def thread_folder(self) -> Path:
+        return self.archive_path.joinpath(self.thread.board, self.thread.tid)
+
+    @property
+    def thread_media_folder(self) -> Path:
+        path = self.thread_folder / "media"
+        safely_create_dir(path)
+        return path
+
+    @property
+    def json_path(self) -> Path:
+        return self.thread_folder / "thread.json"
 
     @staticmethod
     def get_thread_data(board: str, thread_id: str) -> dict:
@@ -48,17 +76,22 @@ class FourChanAPIE(Extractor):
         return json.load(str(self.json_path), verbose=self.verbose)
 
     def _no_new_replies(self, previous_thread_data, current_thread_data):
-        if (
-            previous_thread_data["posts"][0]["replies"]
-            == current_thread_data["posts"][0]["replies"]
-        ):
-            if self.verbose:
-                print("No new replies.")
-            return True
+        if previous_thread_data is not None:
+            if (
+                previous_thread_data["posts"][0]["replies"]
+                == current_thread_data["posts"][0]["replies"]
+            ):
+                if self.verbose:
+                    print("No new replies.")
+                return True
         return False
 
+    # TODO: decorator @false_on_key_error
     def _was_thread_archived(self) -> bool:
-        return self.thread_data["posts"][0]["archived"]
+        try:
+            return self.thread_data["posts"][0]["archived"]
+        except KeyError:
+            return False
 
     def _was_thread_404(self) -> bool:
         try:
@@ -66,12 +99,19 @@ class FourChanAPIE(Extractor):
         except KeyError:
             return False
 
-    def download_thread_data(self, archive_path: Path):
-        self.thread_folder = archive_path.joinpath(
-            self.thread.board, self.thread.tid
+    def _dump_thread_json(self, thread_data):
+        json.dump(
+            thread_data,
+            str(self.json_path),
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+            overwrite=True,
+            verbose=self.verbose,
         )
+
+    def download_thread_data(self):
         safely_create_dir(self.thread_folder)
-        self.json_path = self.thread_folder / "thread.json"
         if self.thread_data is not None:
             if self._was_thread_archived() or self._was_thread_404():
                 return
@@ -82,46 +122,101 @@ class FourChanAPIE(Extractor):
         except Exception as e:
             msg = f"Could not download {self.thread.id} from the API."
             raise RuntimeError(f"{msg}\n{repr(e)}")
-        if self._no_new_replies(
-            self.thread_data, self.current_thread_data
-        ):
+        if self._no_new_replies(self.thread_data, self.current_thread_data):
             return
-        json.dump(
-            self.current_thread_data,
-            str(self.json_path),
-            indent=2,
-            sort_keys=True,
-            ensure_ascii=False,
-            overwrite=True,
-            verbose=self.verbose,
-            )
+        self._dump_thread_json(self.current_thread_data)
 
-    @classmethod
-    def get_media_urls(cls, posts: List[dict], board: str) -> List[str]:
+    @staticmethod
+    def get_media_info(posts: List[dict]) -> List[Tuple[str, str]]:
         # TODO: type thread_data JSON correctly
-        media_urls = [
-            cls.base_media_url.format(board, post["tim"], post["ext"])
+        media_info_objs = [
+            MediaInfo(post["tim"], post["ext"], post["md5"])
             for post in posts
             if "tim" in post
         ]
-        return media_urls
+        return media_info_objs
 
-    def download_thread_media(self):
-        # check for already downloaded media
-        # self.thread_media_folder = self.thread_folder / "media"
-        # downloaded_media_count = count_files_in_dir(self.thread_media_folder)
-        # if self.previous_thread_data["posts"][0]["images"] + 1 == downloaded_media_count:
-        #     # + 1 because of the OP image
-        #     # what about partially downloaded images or corrupted ones?
-        #     # if old_thread.get("archive-chan", {}).get("images-ok", False):
-        #     return
+    @staticmethod
+    def calculate_md5(file_path: Path, temp_folder: Path = None) -> str:
+        if temp_folder is None:
+            temp_folder = file_path.parent
+        file_md5_path = temp_folder.joinpath(f"{file_path.stem}.md5")
+        command = f"openssl md5 -binary {str(file_path)}"
+        command += " | openssl base64"
+        command += f" > {str(file_md5_path)}"
+        os.system(command)
+        with open(file_md5_path) as file_md5_file_handler:
+            calculated_md5_digest = file_md5_file_handler.read()
+        file_md5_path.unlink()
+        return calculated_md5_digest.rstrip("\n")
 
-        media_urls = self.get_media_urls(
-            self.thread_data["posts"], self.thread.board
-        )
-        print(media_urls)
-        exit()
+    def _is_media_ok(self) -> bool:
+        try:
+            if self.thread_data["archive-chan"]["media-ok"]:
+                return True
+        except KeyError:
+            pass
+        return False
 
+    def _are_there_undownloaded_media_files(self) -> bool:
+        """
+        Check if media is fully and correctly downloaded.
+        """
+        downloaded_media_count = count_files_in_dir(self.thread_media_folder)
+        total_media_count = self.thread_data["posts"][0]["images"] + 1
+        # + 1 because of the OP image
+        return downloaded_media_count != total_media_count
+
+    def _get_hash_mismatches(self) -> List[MediaInfo]:
+        media_info_objs = self.get_media_info(self.thread_data["posts"])
+        mismatched_hash_files = [
+            media_file
+            for media_file in media_info_objs
+            if media_file.md5 != self.calculate_md5(
+                self.thread_media_folder / media_file.filename
+            )
+        ]
+        return mismatched_hash_files
+
+    def _mark_thread_with_media_ok(self):
+        if "archive-chan" not in self.thread_data:
+            self.thread_data["archive-chan"] = {"media-ok": True}
+        else:
+            self.thread_data["archive-chan"].update({"media-ok": True})
+        self._dump_thread_json(self.thread_data)
+
+    def download_thread_media(self, max_retries=3):
+        """
+        This should only be called after thread_data has been downloaded.
+        """
+        if self._is_media_ok():
+            return
+        if self._are_there_undownloaded_media_files():
+            downloaded_files = {
+                f.name for f in self.thread_media_folder.glob("*")
+            }
+            media_info_objs = self.get_media_info(self.thread_data["posts"])
+            all_files = [m.filename for m in media_info_objs]
+            undownloaded_files = [
+                f for f in all_files if f not in downloaded_files
+            ]
+            for filename in undownloaded_files:
+                self.download_file(
+                    self.base_media_url.format(self.thread.board, filename),
+                    self.thread_media_folder / filename,
+                    self.verbose,
+                    max_retries,
+                )
+        # check if the downloaded files are ok
+        # TODO: walrus when py3.8
+        mismatched_hash_files = self._get_hash_mismatches()
+        if not mismatched_hash_files:
+            if self._was_thread_archived() or self._was_thread_404():
+                self._mark_thread_with_media_ok()
+            return
+        # if at first you don't succeed, try, try again.
+        # self.download_thread_media()
+        raise RuntimeError("This should be so rare, it shouldn't even happen.")
 
     def extract(
         self,
