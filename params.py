@@ -45,6 +45,11 @@ def get_args():
         type=int,
     )
     parser.add_argument(
+        "--skip_renders",
+        action="store_true",
+        help="Do not render any threads."
+    )
+    parser.add_argument(
         "--text_only",
         action="store_true",
         help="Download only HTMLs or JSONs.",

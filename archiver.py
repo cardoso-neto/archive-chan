@@ -1,15 +1,15 @@
 import signal
 from multiprocessing import Pool
 from time import time
-from typing import Callable, List, Iterable, Optional, Tuple, Union
+from typing import Callable, List, Iterable, Optional, Union
 
-from extractors import Extractor, FourChanAPIE, FourChanE
-from models import boards, Params, Thread
+from extractors import Extractor, FourChanAPIE
+from models import boards, Params
 from params import get_args
 from utils import safely_create_dir
 
 
-OptionalConcreteExtractor = Optional[Union[FourChanAPIE, FourChanE]]
+OptionalConcreteExtractor = Optional[FourChanAPIE]
 params = Params()
 
 
@@ -27,9 +27,7 @@ def parse_input():
 
 
 def choose_extractor(thread_url: str) -> OptionalConcreteExtractor:
-    """
-    Check for valid urls in Extractor subclasses.
-    """
+    """Check for valid urls in Extractor subclasses."""
     thread = None
     extractor: OptionalConcreteExtractor = None
     for class_ in Extractor.__subclasses__():
@@ -60,16 +58,26 @@ def download_media_files(
         try:
             extractor.download_thread_media()
         except Exception as e:
-            raise e
+            print(repr(e))
         return extractor
 
 
+def render_threads(
+    extractor: OptionalConcreteExtractor
+) -> OptionalConcreteExtractor:
+    if extractor is not None:
+        try:
+            extractor.render_thread()
+        except Exception as e:
+            raise e
+        return extractor
+
 def archive(thread_url: str):
     extractor = choose_extractor(thread_url)
-    thread = extractor.thread
     if not extractor:
         print("Improper URL:", thread_url)
         return 1
+    thread = extractor.thread
     thread_folder = params.path_to_download.joinpath(
         thread.board, thread.tid
     )
@@ -83,7 +91,7 @@ def archive(thread_url: str):
 
 def feeder(
     url: str, archived: bool, archived_only: bool, verbose: bool
-) -> Union[str, List[str]]:
+) -> List[str]:
     """Create and return a list of urls according to the input."""
     thread_urls = []
     # list of thread urls
@@ -97,7 +105,7 @@ def feeder(
         )
     # single thread url
     else:
-        return url
+        return [url]
     return thread_urls
 
 
@@ -123,9 +131,7 @@ def main():
     thread_urls = feeder(
         args.thread, args.archived, args.archived_only, args.verbose
     )
-    if isinstance(thread_urls, str):
-        thread_urls = [thread_urls]
-    if isinstance(thread_urls, list) and len(thread_urls):
+    if thread_urls:
         if args.new_logic:
             # choose extractors
             jobs: Iterable[OptionalConcreteExtractor]
@@ -133,17 +139,16 @@ def main():
             # download all jsons/htmls/text only
             jobs = [download_text_data(x) for x in jobs]
             if not args.text_only:
-                # download op media only
-                pass  # TODO
+                # TODO: download op media only
+                pass
             if args.preserve_media:
                 # download all media
                 jobs = [download_media_files(x) for x in jobs]
-            # parse posts' text
-            # render all threads
+            # TODO: parse posts' text
+            if not args.skip_renders:
+                jobs = [render_threads(x) for x in jobs]
         else:
             safe_parallel_run(archive, thread_urls)
-    # elif isinstance(thread_urls, str):  # single thread mode
-    #     archive(thread_urls)
     print("Time elapsed: %.4fs" % (time() - start_time))
 
 

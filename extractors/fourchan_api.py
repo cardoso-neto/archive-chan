@@ -1,3 +1,4 @@
+
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,7 +38,7 @@ class FourChanAPIE(Extractor):
         self.archive_path = archive_path
         self.verbose = verbose
         self.app = Flask('archive-chan', template_folder='./assets/templates/')
-        self._thread_data: dict = None
+        self._thread_data: Optional[dict] = None
         # self.db = Database()  # I'll end up deprecating this
 
     @property
@@ -61,13 +62,16 @@ class FourChanAPIE(Extractor):
         return self.thread_folder / "thread.json"
 
     @staticmethod
-    def get_thread_data(board: str, thread_id: str) -> dict:
+    def get_thread_data(board: str, thread_id: str) -> Optional[dict]:
         r = RetrySession().get(
             f"https://a.4cdn.org/{board}/thread/{thread_id}.json", timeout=16
         )
+        if r.status_code == 404:
+            return None
         if r.status_code != requests.codes.ok:
             print(f"Skip {thread_id} due to error {r.status_code}.")
-            raise Exception(f"Thread {thread_id}: error {r.status_code}.")
+            msg = f"Thread {thread_id}: error {r.status_code}."
+            raise requests.exceptions.RequestException(msg)
         return r.json()
 
     def _load_previous_thread_data(self) -> Optional[dict]:
@@ -110,24 +114,39 @@ class FourChanAPIE(Extractor):
             verbose=self.verbose,
         )
 
+    def _mark_thread_as_404(self):
+        if "archive-chan" not in self.thread_data:
+            self.thread_data["archive-chan"] = {"404": True}
+        else:
+            self.thread_data["archive-chan"].update({"404": True})
+        self._dump_thread_json(self.thread_data)
+
     def download_thread_data(self):
         safely_create_dir(self.thread_folder)
         if self.thread_data is not None:
             if self._was_thread_archived() or self._was_thread_404():
+                if self.verbose:
+                    print("Nothing new will ever be available again.")
                 return
         try:
             self.current_thread_data = self.get_thread_data(
                 self.thread.board, self.thread.tid
             )
-        except Exception as e:
-            msg = f"Could not download {self.thread.id} from the API."
-            raise RuntimeError(f"{msg}\n{repr(e)}")
-        if self._no_new_replies(self.thread_data, self.current_thread_data):
-            return
-        self._dump_thread_json(self.current_thread_data)
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(repr(e))
+        if self.current_thread_data is None:
+            if self.thread_data is None:
+                # R.I.P.
+                raise RuntimeError("Thread 79244239 is 404. :(")
+            else:
+                self._mark_thread_as_404()
+            self._dump_thread_json(self.current_thread_data)
+        else:
+            if self._no_new_replies(self.thread_data, self.current_thread_data):
+                return
 
     @staticmethod
-    def get_media_info(posts: List[dict]) -> List[Tuple[str, str]]:
+    def get_media_info(posts: List[dict]) -> List[MediaInfo]:
         # TODO: type thread_data JSON correctly
         media_info_objs = [
             MediaInfo(post["tim"], post["ext"], post["md5"])
@@ -178,28 +197,32 @@ class FourChanAPIE(Extractor):
         ]
         return mismatched_hash_files
 
-    def _mark_thread_with_media_ok(self):
+    def _mark_thread_media_as_done(self):
         if "archive-chan" not in self.thread_data:
-            self.thread_data["archive-chan"] = {"media-ok": True}
+            self.thread_data["archive-chan"] = {"media-done": True}
         else:
-            self.thread_data["archive-chan"].update({"media-ok": True})
+            self.thread_data["archive-chan"].update({"media-done": True})
         self._dump_thread_json(self.thread_data)
 
-    def download_thread_media(self, max_retries=3):
+    def _get_undownloaded_files(self) -> List[str]:
+        downloaded_files = {
+            f.name for f in self.thread_media_folder.glob("*")
+        }
+        media_info_objs = self.get_media_info(self.thread_data["posts"])
+        all_files = [m.filename for m in media_info_objs]
+        undownloaded_files = [
+            f for f in all_files if f not in downloaded_files
+        ]
+        return undownloaded_files
+
+    def download_thread_media(self, max_retries: int = 3):
         """
         This should only be called after thread_data has been downloaded.
         """
         if self._is_media_ok():
             return
         if self._are_there_undownloaded_media_files():
-            downloaded_files = {
-                f.name for f in self.thread_media_folder.glob("*")
-            }
-            media_info_objs = self.get_media_info(self.thread_data["posts"])
-            all_files = [m.filename for m in media_info_objs]
-            undownloaded_files = [
-                f for f in all_files if f not in downloaded_files
-            ]
+            undownloaded_files = self._get_undownloaded_files()
             for filename in undownloaded_files:
                 self.download_file(
                     self.base_media_url.format(self.thread.board, filename),
@@ -208,15 +231,24 @@ class FourChanAPIE(Extractor):
                     max_retries,
                 )
         # check if the downloaded files are ok
-        # TODO: walrus when py3.8
+        # TODO: walrus when py38, can't py38 yet because superjson time.clock
         mismatched_hash_files = self._get_hash_mismatches()
-        if not mismatched_hash_files:
+        if mismatched_hash_files:
+            for m in mismatched_hash_files:
+                (self.thread_media_folder / m.filename).unlink()
+                # if at first you don't succeed, try, try again.
+                self.download_thread_media(max_retries=2)
+        else:
+            if self.verbose:
+                print("All available media has been downloaded.")
             if self._was_thread_archived() or self._was_thread_404():
-                self._mark_thread_with_media_ok()
+                if self.verbose:
+                    print("Thread media marked as fully downloaded.")
+                self._mark_thread_media_as_done()
             return
-        # if at first you don't succeed, try, try again.
-        # self.download_thread_media()
-        raise RuntimeError("This should be so rare, it shouldn't even happen.")
+
+    def render_thread(self):
+        pass
 
     def extract(
         self,
