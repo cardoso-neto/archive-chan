@@ -24,10 +24,6 @@ class Extractor(ABC):
         thread = Thread(thread_id, board, thread_url)
         return thread
 
-    @abstractmethod
-    def extract(self, thread, params):
-        pass
-
     def render_and_save_html(self, output_path: Path, **kwargs):
         with self.app.app_context():
             rendered = render_template('thread.html', **kwargs)
@@ -66,6 +62,10 @@ class Extractor(ABC):
                 print(f"Retry #{num_retry}...")
                 num_retry += 1
                 self.download(url, file_path, verbose, max_retries, num_retry)
+
+    @abstractmethod
+    def extract(self, thread, params):
+        pass
 
     @abstractmethod
     def getOP(self, page_soup, params, thread):

@@ -1,7 +1,8 @@
-import signal
 from multiprocessing import Pool
 from time import time
-from typing import Callable, List, Iterable, Optional, Union
+from typing import Callable, List, Iterable, Optional, TypeVar
+
+from toolz import compose
 
 from extractors import Extractor, FourChanAPIE
 from models import boards, Params
@@ -9,6 +10,8 @@ from params import get_args
 from utils import safely_create_dir
 
 
+T = TypeVar("T")
+U = TypeVar("U")
 OptionalConcreteExtractor = Optional[FourChanAPIE]
 params = Params()
 
@@ -48,7 +51,7 @@ def download_text_data(
         except RuntimeError as e:
             print(repr(e))
             return None
-        return extractor
+        return
 
 
 def download_media_files(
@@ -109,20 +112,17 @@ def feeder(
     return thread_urls
 
 
-def safe_parallel_run(func: Callable, iterable: Iterable) -> Iterable:
-    sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
-    pool = Pool(processes=4)
-    signal.signal(signal.SIGINT, sigint_handler)
-    res = []
-    try:
-        res = pool.map_async(func, iterable)
-        res.get(86400)
-    except KeyboardInterrupt:
-        print("Terminating download")
-        pool.terminate()
-    finally:
-        pool.close()
-        return res
+def safe_parallel_run(
+    func: Callable[[T], U], iterable: Iterable[T], threads: int = 4
+) -> Iterable[U]:
+    with Pool(processes=threads) as pool:
+        try:
+            res = pool.map(func, iterable)
+        except KeyboardInterrupt:
+            print("Killing downloads...")
+            pool.terminate()
+            exit(1)
+    return res
 
 
 def main():
@@ -132,23 +132,17 @@ def main():
         args.thread, args.archived, args.archived_only, args.verbose
     )
     if thread_urls:
-        if args.new_logic:
-            # choose extractors
-            jobs: Iterable[OptionalConcreteExtractor]
-            jobs = [choose_extractor(x) for x in thread_urls]
-            # download all jsons/htmls/text only
-            jobs = [download_text_data(x) for x in jobs]
-            if not args.text_only:
-                # TODO: download op media only
-                pass
-            if args.preserve_media:
-                # download all media
-                jobs = [download_media_files(x) for x in jobs]
-            # TODO: parse posts' text
-            if not args.skip_renders:
-                jobs = [render_threads(x) for x in jobs]
-        else:
-            safe_parallel_run(archive, thread_urls)
+        # download all jsons/htmls/text only
+        safe_parallel_run(compose(download_text_data, choose_extractor), thread_urls)
+        if not args.text_only:
+            # TODO: download op media only
+            pass
+        if args.preserve_media:
+            # download all media
+            safe_parallel_run(compose(download_media_files, choose_extractor), thread_urls)
+        # TODO: parse posts' text
+        if not args.skip_renders:
+            safe_parallel_run(compose(render_threads, choose_extractor), thread_urls)
     print("Time elapsed: %.4fs" % (time() - start_time))
 
 

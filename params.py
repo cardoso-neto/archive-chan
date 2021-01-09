@@ -65,10 +65,5 @@ def get_args():
         action="store_true",
         help="Verbose logging to stdout.",
     )
-    parser.add_argument(
-        "--new_logic",
-        action="store_true",
-        help="2.0 development switch"
-    )
     args = parser.parse_args()
     return args
