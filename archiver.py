@@ -42,54 +42,28 @@ def choose_extractor(thread_url: str) -> OptionalConcreteExtractor:
     return extractor
 
 
-def download_text_data(
-    extractor: OptionalConcreteExtractor
-) -> OptionalConcreteExtractor:
+def download_text_data(extractor: OptionalConcreteExtractor):
     if extractor is not None:
         try:
             extractor.download_thread_data()
         except RuntimeError as e:
             print(repr(e))
-            return None
-        return
 
 
-def download_media_files(
-    extractor: OptionalConcreteExtractor
-) -> OptionalConcreteExtractor:
+def download_media_files(extractor: OptionalConcreteExtractor):
     if extractor is not None:
         try:
             extractor.download_thread_media()
         except Exception as e:
             print(repr(e))
-        return extractor
 
 
-def render_threads(
-    extractor: OptionalConcreteExtractor
-) -> OptionalConcreteExtractor:
+def render_threads(extractor: OptionalConcreteExtractor):
     if extractor is not None:
         try:
             extractor.render_thread()
         except Exception as e:
             raise e
-        return extractor
-
-def archive(thread_url: str):
-    extractor = choose_extractor(thread_url)
-    if not extractor:
-        print("Improper URL:", thread_url)
-        return 1
-    thread = extractor.thread
-    thread_folder = params.path_to_download.joinpath(
-        thread.board, thread.tid
-    )
-    safely_create_dir(thread_folder)
-    if params.verbose:
-        print("Downloading thread:", thread.tid)
-    extractor.extract(
-        thread, params, thread_folder, params.use_db, params.verbose
-    )
 
 
 def feeder(
