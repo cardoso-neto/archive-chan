@@ -77,7 +77,7 @@ def feeder(
             thread_urls.extend(map(str.strip, f))
     # a board /name/ (only from 4chan)
     elif url in boards:
-        FourChanAPIE.get_threads_from_board(
+        thread_urls = FourChanAPIE.get_threads_from_board(
             url, archived, archived_only, verbose
         )
     # single thread url

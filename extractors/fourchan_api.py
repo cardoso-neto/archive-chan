@@ -429,7 +429,7 @@ class FourChanAPIE(Extractor):
         if verbose:
             print(f"Found {len(data)} archived threads.")
         thread_urls = [
-            cls.base_thread_url.format(board, thread_id)
+            cls.base_thread_url.format(board=board, thread_id=thread_id)
             for thread_id in sorted(data)
         ]
         return thread_urls
@@ -445,7 +445,7 @@ class FourChanAPIE(Extractor):
             raise Exception(msg)
         data = r.json()
         thread_urls = [
-            cls.base_thread_url.format(board, thread["no"])
+            cls.base_thread_url.format(board=board, thread_id=thread["no"])
             for page in data
             for thread in page["threads"]
         ]
