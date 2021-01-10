@@ -109,11 +109,12 @@ def main():
         # download all jsons/htmls/text only
         safe_parallel_run(compose(download_text_data, choose_extractor), thread_urls)
         if not args.text_only:
-            # TODO: download op media only
-            pass
-        if args.preserve_media:
-            # download all media
-            safe_parallel_run(compose(download_media_files, choose_extractor), thread_urls)
+            if args.preserve_media:
+                # download all media
+                safe_parallel_run(compose(download_media_files, choose_extractor), thread_urls)
+            else:
+                # TODO: download op media only
+                pass
         # TODO: parse posts' text
         if not args.skip_renders:
             safe_parallel_run(compose(render_threads, choose_extractor), thread_urls)

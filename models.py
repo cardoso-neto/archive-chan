@@ -144,7 +144,6 @@ class Reply:
         self.img_src = ""
         self.board = ""
         self.custom_id = str(post["no"]) + str(post["time"])
-        self.preserved = False
 
         allowed_keys = list(self.__dict__.keys())
 
