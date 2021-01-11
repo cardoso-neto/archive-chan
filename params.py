@@ -3,6 +3,7 @@ from pathlib import Path
 
 
 def get_args():
+    """Get user input from the command-line and parse it."""
     parser = ArgumentParser(description="Archives 4chan threads")
     parser.add_argument(
         "thread", help="Link to the 4chan thread or the name of the board."

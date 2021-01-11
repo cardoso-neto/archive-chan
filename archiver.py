@@ -1,32 +1,20 @@
 from multiprocessing import Pool
+from pathlib import Path
 from time import time
 from typing import Callable, List, Iterable, Optional, TypeVar
 
+import click
 from toolz import compose
 
 from extractors import Extractor, FourChanAPIE
-from models import boards, Params
+from models import boards
 from params import get_args
-from utils import safely_create_dir
 
 
 T = TypeVar("T")
 U = TypeVar("U")
 OptionalConcreteExtractor = Optional[FourChanAPIE]
-params = Params()
-
-
-def parse_input():
-    """Get user input from the command-line and parse it."""
-    args = get_args()
-
-    params.preserve = args.preserve_media
-    params.total_retries = args.retries
-    params.verbose = args.verbose
-    params.total_posts = args.posts
-    params.use_db = args.use_db
-    params.path_to_download = args.path
-    return args
+path_to_download = None
 
 
 def choose_extractor(thread_url: str) -> OptionalConcreteExtractor:
@@ -36,7 +24,7 @@ def choose_extractor(thread_url: str) -> OptionalConcreteExtractor:
     for class_ in Extractor.__subclasses__():
         thread = class_.parse_thread_url(thread_url)
         if thread:
-            extractor = class_(thread, params.path_to_download)
+            extractor = class_(thread, path_to_download)
             # TODO: this params.path_to_download does not belong here
             break
     return extractor
@@ -101,7 +89,9 @@ def safe_parallel_run(
 
 def main():
     start_time = time()
-    args = parse_input()
+    args = get_args()
+    global path_to_download
+    path_to_download = args.path
     thread_urls = feeder(
         args.thread, args.archived, args.archived_only, args.verbose
     )

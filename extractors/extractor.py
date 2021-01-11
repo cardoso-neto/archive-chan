@@ -62,25 +62,3 @@ class Extractor(ABC):
                 print(f"Retry #{num_retry}...")
                 num_retry += 1
                 self.download(url, file_path, verbose, max_retries, num_retry)
-
-    @abstractmethod
-    def extract(self, thread, params):
-        pass
-
-    @abstractmethod
-    def getOP(self, page_soup, params, thread):
-        """
-        Get the OP information from the page soup.
-
-        Return OP elements in a tuple of strings.
-        """
-        pass
-
-    @abstractmethod
-    def getReplyWrite(self, page_soup, params, thread):
-        """
-        Get the reply information from page soup.
-
-        Returns a list of replies.
-        """
-        pass
