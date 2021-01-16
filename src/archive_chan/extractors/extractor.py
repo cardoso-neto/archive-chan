@@ -6,8 +6,8 @@ from typing import Optional
 
 from flask import Flask, render_template
 
-from models import Thread
-from safe_requests_session import RetrySession
+from ..models import Thread
+from ..safe_requests_session import RetrySession
 
 
 class Extractor(ABC):

@@ -9,10 +9,10 @@ from flask import Flask, render_template
 from superjson import json
 
 from .extractor import Extractor
-from models import Reply, Thread
-from resources.database.db_interface import Database
-from safe_requests_session import RetrySession
-from utils import count_files_in_dir, safely_create_dir
+from ..models import Reply, Thread
+from ..resources.database.db_interface import Database
+from ..safe_requests_session import RetrySession
+from ..utils import count_files_in_dir, safely_create_dir
 
 
 @dataclass

@@ -6,9 +6,9 @@ from typing import Callable, List, Iterable, Optional, TypeVar
 import click
 from toolz import compose
 
-from extractors import Extractor, FourChanAPIE
-from models import boards
-from params import get_args
+from .extractors import Extractor, FourChanAPIE
+from .models import boards
+from .params import get_args
 
 
 T = TypeVar("T")
