@@ -34,6 +34,7 @@ setuptools.setup(
     entry_points = {
         'console_scripts': [
             'archive-chan=archive_chan:main',
+            'archive-chan-build-index=thread_indexer:main'
         ],
     },
     python_requires=">=3.7",
