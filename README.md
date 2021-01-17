@@ -11,14 +11,16 @@ Each thread is then rendered as an html file in a similar layout to 4chan albeit
 
 `pip install git+https://github.com/cardoso-neto/archive-chan.git@master`
 
+and you can also run `pip install --upgrade archive-chan` from time to time to receive updates.
+
 Note:
-it only runs on python 3.7 for now.
+`archive-chan` only runs on Python 3.7.x for now.
 I use [miniconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html) to manage my many python versions.
 After installing miniconda, you can create an env with:
 
 `conda create --name chan python=3.7`
 
-Activate it with `conda activate chan` then install archive-chan with the pip command above.
+Activate it with `conda activate chan` and then install archive-chan with the pip command above.
 
 ## Usage
 

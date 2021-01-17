@@ -3,7 +3,6 @@ from pathlib import Path
 from time import time
 from typing import Callable, List, Iterable, Optional, TypeVar
 
-import click
 from toolz import compose
 
 from .extractors import Extractor, FourChanAPIE
@@ -109,7 +108,3 @@ def main():
         if not args.skip_renders:
             safe_parallel_run(compose(render_threads, choose_extractor), thread_urls)
     print("Time elapsed: %.4fs" % (time() - start_time))
-
-
-if __name__ == "__main__":
-    main()
