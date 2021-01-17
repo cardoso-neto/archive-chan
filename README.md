@@ -1,60 +1,82 @@
 # archive-chan
-> Downloads threads on 4chan and saves the images/videos
+> Download 4chan threads and saves the images/videos
 
-This program has the ability to download entire threads saving the format of the discussion as well as preserving any video, gifs or images that may have been posted. Each thread is downloaded in an html file in a similar layout to 4chan albeit simplified.
+This program downloads entire threads from 4chan's API.
+It saves the format of the discussion, preserving all media (videos, gifs, or images) that may have been posted.
+Allowing you to browse it offline forever. 
 
-## Requirements
-* Python3
-* BeautifulSoup
-* Flask
-* requests
+Each thread is then rendered as an html file in a similar layout to 4chan albeit a lot simplified (any front-end engineers feel like improving it? All help is welcome).
 
-To install requirements
-```
-pip3 install -r requirements.txt
-```
+## Installation
 
+`pip install git+https://github.com/cardoso-neto/archive-chan.git@master`
+
+Note:
+it only runs on python 3.7 for now.
+I use [miniconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html) to manage my many python versions.
+After installing miniconda, you can create an env with:
+
+`conda create --name chan python=3.7`
+
+Activate it with `conda activate chan` then install archive-chan with the pip command above.
 
 ## Usage
 
 ### Archive 4chan threads or catalogs
 
-To archive one or multiple threads of your choosing pass in the thread url or a text file of thread urls each on a new line to `archiver.py`. A number of flags can be set in addition to this.
+To archive one or multiple threads of your choosing pass in the thread url or a text file of thread urls each on a new line to `archive-chan`.
 
-This is the help output
+This is the help output:
 ```
-python3 archiver.py -h
-usage: archiver.py [-h] [-p] [-r RETRIES] [--posts POSTS] [-v] Thread
+$ archive-chan --help
+usage: archive-chan [-h] [-a] [-ao] [-p] [--path PATH] [--posts POSTS]
+                    [-r RETRIES] [--skip_renders] [--text_only] [-v]
+                    thread
 
+Archive 4chan threads
 
 positional arguments:
-  Thread                Enter the link or txt file of links to the 4chan thread
+  thread                Link to the 4chan thread or the name of the board.
 
 optional arguments:
   -h, --help            show this help message and exit
-  -p, --preserve_files  Save images and video files locally
-  -r RETRIES, --retries RETRIES
-                        Set total number of retries if a download fails
+  -a, --archived        Download threads from the /board/archive/ as well.
+  -ao, --archived_only  Download threads from the /board/archive/ INSTEAD.
+  -p, --preserve_media  Save images and video files locally.
+  --path PATH           Path to folder where the threads should be saved.
   --posts POSTS         Number of posts to download
-  -v, --verbose         Print more information on each post
+  --skip_renders        Do not render any threads.
+  --text_only           Download only HTMLs or JSONs.
+  -v, --verbose         Verbose logging to stdout.
 ```
 
-Here is an example that downloads every post in a thread and saves all the media uploaded.
+### Examples
+
+Download every post in a thread and save all the media uploaded:
 ```
-python3 archiver.py http://boards.4channel.org/p/thread/3434289/ect-edit-challenge-thread -p
+$ archive-chan http://boards.4chan.org/p/thread/3434289/ect-edit-challenge-thread -p -v
 ```
 
-To archive all the threads pass in the board as a positional argument. A number of flags can be set in addition to this.
+Archive all threads from a board to a specific path, e.g., every every active thread as well as every archived thread from /g/ to a `./downloads` folder (if it doesn't exist, it will be created):
+```
+$ archive-chan g --archived --preserve_media --verbose --path downloads
+archive-chan g --path downloads
 
-Here is an example that downloads every active post in a /g/.
+Dump to 'downloads/g/79745590/thread.json' ...
+    Complete! Elapse 0.022107 sec.
+
+Dump to 'downloads/g/76759434/thread.json' ...
+    Complete! Elapse 0.002117 sec.
+
+Dump to 'downloads/g/79748257/thread.json' ...
+    Complete! Elapse 0.004685 sec.
+
+...
 ```
-python3 archiver.py g -v
-Downloading thread: 51971506
-Downloading post: p51971506 posted on 12/20/15(Sun)20:03:52
-Downloading reply: p67501950 replied on 09/07/18(Fri)19:58:36
-Downloading thread: 70621338
-Downloading post: p70621338 posted on 04/19/19(Fri)23:03:23
-Downloading reply: p70621345 replied on 04/19/19(Fri)23:04:13
-Downloading reply: p70621391 replied on 04/19/19(Fri)23:10:35
-Downloading reply: p70621407 replied on 04/19/19(Fri)23:12:27
-```
+
+## Beta
+
+This software is in its early stages.
+Report bugs and contribute if possible.
+
+Come chat with me, other devs, and other users on [gitter.im/archive-chan](https://gitter.im/archive-chan/).
