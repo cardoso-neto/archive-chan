@@ -28,7 +28,7 @@ class Extractor(ABC):
 
     @classmethod
     def parse_thread_url(cls, thread_url: str) -> Optional[Thread]:
-        match_ =  re.match(cls.VALID_URL, thread_url)
+        match_ = re.match(cls.VALID_URL, thread_url)
         if not match_:
             return None
         board = match_.group('board')

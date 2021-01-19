@@ -2,10 +2,9 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import requests
-from flask import Flask, render_template
 from superjson import json
 
 from .extractor import Extractor
@@ -138,7 +137,6 @@ class FourChanAPIE(Extractor):
                 self._mark_thread_as_404()
         elif self._has_new_replies(self.thread_data, self.current_thread_data):
             self._dump_thread_json(self.current_thread_data)
-
 
     @staticmethod
     def get_media_info(posts: List[dict]) -> List[MediaInfo]:
