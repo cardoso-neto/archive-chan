@@ -9,7 +9,6 @@ from .extractors import Extractor, FourChanAPIE
 from .models import boards
 from .params import get_args
 
-
 T = TypeVar("T")
 U = TypeVar("U")
 OptionalConcreteExtractor = Optional[FourChanAPIE]

@@ -7,10 +7,10 @@ from typing import List, Optional
 import requests
 from superjson import json
 
-from .extractor import Extractor
 from ..models import Reply, Thread
 from ..safe_requests_session import RetrySession
 from ..utils import count_files_in_dir, safely_create_dir
+from .extractor import Extractor
 
 
 @dataclass

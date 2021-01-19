@@ -1,7 +1,5 @@
 
-from archive_chan import archiver
-from archive_chan import extractors
-from archive_chan import models
+from archive_chan import archiver, extractors, models
 
 
 def test_url_parser():
