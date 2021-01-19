@@ -10,7 +10,6 @@ from superjson import json
 
 from .extractor import Extractor
 from ..models import Reply, Thread
-from ..resources.database.db_interface import Database
 from ..safe_requests_session import RetrySession
 from ..utils import count_files_in_dir, safely_create_dir
 
@@ -30,16 +29,9 @@ class FourChanAPIE(Extractor):
     base_thread_url = "https://boards.4chan.org/{board}/thread/{thread_id}"
     base_media_url = "https://i.4cdn.org/{}/{}"
 
-    def __init__(
-        self, thread: Thread, archive_path: Path, verbose: bool = True
-    ):
-        super().__init__()
-        self.thread = thread
-        self.archive_path = archive_path
-        self.verbose = verbose
-        self.app = Flask('archive-chan', template_folder='./assets/templates/')
+    def __init__(self, thread: Thread):
+        super().__init__(thread)
         self._thread_data: Optional[dict] = None
-        # self.db = Database()  # I'll end up deprecating this
 
     @property
     def thread_data(self) -> Optional[dict]:

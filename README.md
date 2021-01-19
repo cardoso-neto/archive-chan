@@ -1,11 +1,15 @@
 # archive-chan
-> Download 4chan threads and saves the images/videos
+> Download 4chan threads and save the images/videos
 
-This program downloads entire threads from 4chan's API.
-It saves the format of the discussion, preserving all media (videos, gifs, or images) that may have been posted.
-Allowing you to browse it offline forever. 
+Download entire threads directly from 4chan's API.
+All while preserving the format of the discussion, as well as all media (videos, gifs, or images) that may have been posted.
+Allowing you to browse it offline forever.
 
 Each thread is then rendered as an html file in a similar layout to 4chan albeit a lot simplified (any front-end engineers feel like improving it? All help is welcome).
+
+Note:
+Media is not unnecessarily redownloaded, so you will not waste bandwidth and time.
+However, if a mod deletes a post and you rerun archive-chan on that thread, you will lose that post, as I haven't implemented a solution for that yet.
 
 ## Installation
 
@@ -61,8 +65,7 @@ $ archive-chan http://boards.4chan.org/p/thread/3434289/ect-edit-challenge-threa
 
 Archive all threads from a board to a specific path, e.g., every every active thread as well as every archived thread from /g/ to a `./downloads` folder (if it doesn't exist, it will be created):
 ```
-$ archive-chan g --archived --preserve_media --verbose --path downloads
-archive-chan g --path downloads
+$ archive-chan g --archived --preserve_media --verbose --path ./downloads/
 
 Dump to 'downloads/g/79745590/thread.json' ...
     Complete! Elapse 0.022107 sec.

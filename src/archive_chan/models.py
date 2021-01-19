@@ -79,26 +79,6 @@ boards = {
 }
 
 
-class Params():
-    verbose = False
-    preserve = False
-    total_retries = 5
-    total_posts = None
-    path_to_download = './'
-    use_db = False
-
-    def __init__(self, *args, **kwargs):
-        self.__instance = None
-        super().__init__(*args, **kwargs)
-
-    def __call__(self, *args, **kwargs):
-        if self.__instance is None:
-            self.__instance = super().__call__(*args, **kwargs)
-            return self.__instance
-        else:
-            return self.__instance
-
-
 class Reply:
     def __init__(self, post):
         self.no = 0

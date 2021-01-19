@@ -7,11 +7,24 @@ from typing import Optional
 from flask import Flask, render_template
 
 from ..models import Thread
+from ..params import get_args
 from ..safe_requests_session import RetrySession
 
 
 class Extractor(ABC):
     VALID_URL = r''
+
+    def __init__(self, thread: Thread):
+        super().__init__()
+        self.thread = thread
+
+        args = get_args()
+        self.archive_path = args.path
+        self.verbose = args.verbose
+
+        self.app = Flask('archive-chan', template_folder='./assets/templates/')
+        # TODO: fix this relative path; what if user runs outside of repo root?
+        # self.db = Database()  # I'll end up deprecating this?
 
     @classmethod
     def parse_thread_url(cls, thread_url: str) -> Optional[Thread]:
@@ -61,4 +74,16 @@ class Extractor(ABC):
                 print(e, file=sys.stderr)
                 print(f"Retry #{num_retry}...")
                 num_retry += 1
-                self.download(url, file_path, verbose, max_retries, num_retry)
+                self.download_file(url, file_path, verbose, max_retries, num_retry)
+
+    @abstractmethod
+    def download_thread_data():
+        pass
+
+    @abstractmethod
+    def download_thread_media():
+        pass
+
+    @abstractmethod
+    def render_thread():
+        pass

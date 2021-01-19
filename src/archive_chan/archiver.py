@@ -1,7 +1,7 @@
 from multiprocessing import Pool
 from pathlib import Path
 from time import time
-from typing import Callable, List, Iterable, Optional, TypeVar
+from typing import Callable, List, Optional, Sequence, TypeVar
 
 from toolz import compose
 
@@ -13,7 +13,7 @@ from .params import get_args
 T = TypeVar("T")
 U = TypeVar("U")
 OptionalConcreteExtractor = Optional[FourChanAPIE]
-path_to_download = None
+path_to_download: Path = Path("/tmp/")
 
 
 def choose_extractor(thread_url: str) -> OptionalConcreteExtractor:
@@ -23,8 +23,8 @@ def choose_extractor(thread_url: str) -> OptionalConcreteExtractor:
     for class_ in Extractor.__subclasses__():
         thread = class_.parse_thread_url(thread_url)
         if thread:
-            extractor = class_(thread, path_to_download)
-            # TODO: this params.path_to_download does not belong here
+            extractor = class_(thread)
+            # TODO: this path_to_download does not belong here
             break
     return extractor
 
@@ -74,11 +74,13 @@ def feeder(
 
 
 def safe_parallel_run(
-    func: Callable[[T], U], iterable: Iterable[T], threads: int = 4
-) -> Iterable[U]:
+    func: Callable[[T], U], sequence: Sequence[T], threads: int = 8
+) -> Sequence[U]:
+    if len(sequence) < threads:
+        threads = len(sequence)
     with Pool(processes=threads) as pool:
         try:
-            res = pool.map(func, iterable)
+            res = pool.map(func, sequence)
         except KeyboardInterrupt:
             print("Killing downloads...")
             pool.terminate()
