@@ -12,7 +12,7 @@ from ..safe_requests_session import RetrySession
 
 
 class Extractor(ABC):
-    VALID_URL = r''
+    VALID_URL = r""
 
     def __init__(self, thread: Thread):
         super().__init__()
@@ -22,7 +22,7 @@ class Extractor(ABC):
         self.archive_path = args.path
         self.verbose = args.verbose
 
-        self.app = Flask('archive-chan', template_folder='./assets/templates/')
+        self.app = Flask("archive-chan", template_folder="./assets/templates/")
         # TODO: fix this relative path; what if user runs outside of repo root?
         # self.db = Database()  # I'll end up deprecating this?
 
@@ -31,16 +31,16 @@ class Extractor(ABC):
         match_ = re.match(cls.VALID_URL, thread_url)
         if not match_:
             return None
-        board = match_.group('board')
-        thread_id = match_.group('thread')
+        board = match_.group("board")
+        thread_id = match_.group("thread")
         # TODO: what about the chan name? e.g., 8ch, 55chan, 4channel
         thread = Thread(thread_id, board, thread_url)
         return thread
 
     def render_and_save_html(self, output_path: Path, **kwargs):
         with self.app.app_context():
-            rendered = render_template('thread.html', **kwargs)
-            with open(output_path, "w", encoding='utf-8') as html_file:
+            rendered = render_template("thread.html", **kwargs)
+            with open(output_path, "w", encoding="utf-8") as html_file:
                 html_file.write(rendered)
 
     def download_file(

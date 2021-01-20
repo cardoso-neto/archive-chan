@@ -14,8 +14,8 @@ def count_files_in_dir(
     if not files_only and not recursive:
         return sum(1 for _ in dir_path.iterdir())
     elif not files_only and recursive:
-        return sum(1 for _ in dir_path.glob('**/*'))
+        return sum(1 for _ in dir_path.glob("**/*"))
     elif files_only and not recursive:
         return sum(1 for item in dir_path.iterdir() if item.is_file())
     else:  # files_only and recursive:
-        return sum(1 for x in dir_path.glob('**/*') if x.is_file())
+        return sum(1 for x in dir_path.glob("**/*") if x.is_file())

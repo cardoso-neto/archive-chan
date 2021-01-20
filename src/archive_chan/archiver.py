@@ -52,9 +52,7 @@ def render_threads(extractor: OptionalConcreteExtractor):
             raise e
 
 
-def feeder(
-    url: str, archived: bool, archived_only: bool, verbose: bool
-) -> List[str]:
+def feeder(url: str, archived: bool, archived_only: bool, verbose: bool) -> List[str]:
     """Create and return a list of urls according to the input."""
     thread_urls = []
     # list of thread urls
@@ -92,16 +90,16 @@ def main():
     args = get_args()
     global path_to_download
     path_to_download = args.path
-    thread_urls = feeder(
-        args.thread, args.archived, args.archived_only, args.verbose
-    )
+    thread_urls = feeder(args.thread, args.archived, args.archived_only, args.verbose)
     if thread_urls:
         # download all jsons/htmls/text only
         safe_parallel_run(compose(download_text_data, choose_extractor), thread_urls)
         if not args.text_only:
             if args.preserve_media:
                 # download all media
-                safe_parallel_run(compose(download_media_files, choose_extractor), thread_urls)
+                safe_parallel_run(
+                    compose(download_media_files, choose_extractor), thread_urls
+                )
             else:
                 # TODO: download op media only
                 pass

@@ -127,8 +127,9 @@ class Reply:
 
         allowed_keys = list(self.__dict__.keys())
 
-        self.__dict__.update((key, value) for key, value in post.items()
-                             if key in allowed_keys)
+        self.__dict__.update(
+            (key, value) for key, value in post.items() if key in allowed_keys
+        )
 
         # Raise execption on rejected keys
         rejected_keys = set(post.keys()) - set(allowed_keys)

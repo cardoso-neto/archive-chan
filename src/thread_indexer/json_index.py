@@ -6,9 +6,7 @@ from typing import Iterable
 
 def get_args():
     """Get user input from the command-line and parse it."""
-    parser = ArgumentParser(
-        description="Build a simple JSON index for the threads."
-    )
+    parser = ArgumentParser(description="Build a simple JSON index for the threads.")
     parser.add_argument(
         "--path",
         default="./threads/",

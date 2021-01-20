@@ -33,8 +33,6 @@ class RetrySession(Session):
             backoff_factor=1,
             status_forcelist=[413, 429, 500, 502, 503, 504],
         )
-        adapter = TimeoutHTTPAdapter(
-            timeout=timeout, max_retries=retry_strategy
-        )
+        adapter = TimeoutHTTPAdapter(timeout=timeout, max_retries=retry_strategy)
         self.mount("https://", adapter)
         self.mount("http://", adapter)

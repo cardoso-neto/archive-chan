@@ -30,11 +30,11 @@ setuptools.setup(
     packages=setuptools.find_packages(where="src"),
     package_dir={"": "src"},  # not sure if this line should be here
     # classifiers=classifiers,
-    keywords='archive data-hoarding web 3.0 4chan imageboard',
+    keywords="archive data-hoarding web 3.0 4chan imageboard",
     entry_points={
-        'console_scripts': [
-            'archive-chan=archive_chan:main',
-            'archive-chan-build-index=thread_indexer:main'
+        "console_scripts": [
+            "archive-chan=archive_chan:main",
+            "archive-chan-build-index=thread_indexer:main",
         ],
     },
     python_requires=">=3.7",

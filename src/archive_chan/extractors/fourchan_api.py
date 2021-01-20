@@ -1,4 +1,3 @@
-
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,7 +23,7 @@ class MediaInfo:
 
 
 class FourChanAPIE(Extractor):
-    VALID_URL = r'https?://boards.(4channel|4chan).org/(?P<board>[\w-]+)/thread/(?P<thread>[0-9]+)'
+    VALID_URL = r"https?://boards.(4channel|4chan).org/(?P<board>[\w-]+)/thread/(?P<thread>[0-9]+)"
     base_thread_url = "https://boards.4chan.org/{board}/thread/{thread_id}"
     base_media_url = "https://i.4cdn.org/{}/{}"
 
@@ -184,9 +183,8 @@ class FourChanAPIE(Extractor):
         mismatched_hash_files = [
             media_file
             for media_file in media_info_objs
-            if media_file.md5 != self.calculate_md5(
-                self.thread_media_folder / media_file.filename
-            )
+            if media_file.md5
+            != self.calculate_md5(self.thread_media_folder / media_file.filename)
         ]
         return mismatched_hash_files
 
@@ -198,14 +196,10 @@ class FourChanAPIE(Extractor):
         self._dump_thread_json(self.thread_data)
 
     def _get_undownloaded_files(self) -> List[str]:
-        downloaded_files = {
-            f.name for f in self.thread_media_folder.glob("*")
-        }
+        downloaded_files = {f.name for f in self.thread_media_folder.glob("*")}
         media_info_objs = self.get_media_info(self.thread_data["posts"])
         all_files = [m.filename for m in media_info_objs]
-        undownloaded_files = [
-            f for f in all_files if f not in downloaded_files
-        ]
+        undownloaded_files = [f for f in all_files if f not in downloaded_files]
         return undownloaded_files
 
     def download_thread_media(self, max_retries: int = 3):
@@ -252,9 +246,7 @@ class FourChanAPIE(Extractor):
         # TODO:
         # check if thread.json has been modified since last render
         posts = self.thread_data["posts"]
-        replies = [
-            self._assemble_Reply_from_post(p, self.thread.board) for p in posts
-        ]
+        replies = [self._assemble_Reply_from_post(p, self.thread.board) for p in posts]
         self.render_and_save_html(
             self.html_page_path,
             thread=self.thread,
@@ -265,9 +257,7 @@ class FourChanAPIE(Extractor):
             print(f"Rendered HTML page at {self.html_page_path}")
 
     @classmethod
-    def _get_archived_threads_from_board(
-        cls, board: str, verbose: bool
-    ) -> List[str]:
+    def _get_archived_threads_from_board(cls, board: str, verbose: bool) -> List[str]:
         api_url = f"https://a.4cdn.org/{board}/archive.json"
         r = RetrySession().get(api_url)
         if r.status_code != 200:
@@ -283,9 +273,7 @@ class FourChanAPIE(Extractor):
         return thread_urls
 
     @classmethod
-    def _get_active_threads_from_board(
-        cls, board: str, verbose: bool
-    ) -> List[str]:
+    def _get_active_threads_from_board(cls, board: str, verbose: bool) -> List[str]:
         api_url = f"https://a.4cdn.org/{board}/threads.json"
         r = RetrySession().get(api_url)
         if r.status_code != 200:
@@ -307,11 +295,8 @@ class FourChanAPIE(Extractor):
     ) -> List[str]:
         thread_urls = []
         if not archived_only:
-            thread_urls.extend(
-                cls._get_active_threads_from_board(board, verbose)
-            )
+            thread_urls.extend(cls._get_active_threads_from_board(board, verbose))
         if archived or archived_only:
             thread_urls.extend(
-                cls._get_archived_threads_from_board(board, verbose)
-            )
+                cls._get_archived_threads_from_board(board, verbose))
         return thread_urls

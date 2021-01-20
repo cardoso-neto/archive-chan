@@ -48,7 +48,7 @@ def get_args():
     parser.add_argument(
         "--skip_renders",
         action="store_true",
-        help="Do not render any threads."
+        help="Do not render thread HTMLs after downloading them.",
     )
     parser.add_argument(
         "--text_only",
