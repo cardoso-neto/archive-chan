@@ -11,11 +11,15 @@ boards = {
     "jp": ["Otaku Culture", "favicon-ws.ico", "variables-ws.css"],
     # Video Games
     "v": ["Video Games", "favicon-ws.ico", "variables-ws.css"],
+    "vmg": ["Video Games Mobile", "favicon-ws.ico", "variables-ws.css"],
+    "vst": ["Video Games Strategy", "favicon-ws.ico", "variables-ws.css"],
+    "vm": ["Video Games Multiplayer", "favicon-ws.ico", "variables-ws.css"],
     "vg": ["Video Games Generals", "favicon-ws.ico", "variables-ws.css"],
     "vp": ["Pokemon", "favicon-ws.ico", "variables-ws.css"],
     "vr": ["Retro Games", "favicon-ws.ico", "variables-ws.css"],
     # Interests
     "co": ["Comics & Cartoons", "favicon-ws.ico", "variables-ws.css"],
+    "vt": ["Virtual Youtubers", "favicon-ws.ico", "variables-ws.css"],
     "g": ["Technology", "favicon-ws.ico", "variables-ws.css"],
     "tv": ["Television & Film", "favicon-ws.ico", "variables-ws.css"],
     "k": ["Weapons", "favicon-ws.ico", "variables-ws.css"],
