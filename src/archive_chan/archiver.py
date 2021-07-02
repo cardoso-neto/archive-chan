@@ -56,7 +56,7 @@ def feeder(url: str, archived: bool, archived_only: bool, verbose: bool) -> List
     """Create and return a list of urls according to the input."""
     thread_urls = []
     # list of thread urls
-    if ".txt" in url:
+    if url.endswith(".txt"):
         with open(url, "r") as f:
             thread_urls.extend(map(str.strip, f))
     # a board /name/ (only from 4chan)

@@ -33,7 +33,8 @@ Activate it with `conda activate chan` and then install archive-chan with the pi
 To archive one or multiple threads of your choosing pass in the thread url or a text file of thread urls each on a new line to `archive-chan`.
 
 This is the help output:
-```
+
+```bash
 $ archive-chan --help
 usage: archive-chan [-h] [-a] [-ao] [-p] [--path PATH] [--posts POSTS]
                     [-r RETRIES] [--skip_renders] [--text_only] [-v]
@@ -58,13 +59,15 @@ optional arguments:
 
 ### Examples
 
-Download every post in a thread and save all the media uploaded:
-```
-$ archive-chan http://boards.4chan.org/p/thread/3434289/ect-edit-challenge-thread -p -v
+#### download every post in a thread and save all the media uploaded
+
+```bash
+archive-chan http://boards.4chan.org/p/thread/3434289/ect-edit-challenge-thread -p -v
 ```
 
 Archive all threads from a board to a specific path, e.g., every every active thread as well as every archived thread from /g/ to a `./downloads` folder (if it doesn't exist, it will be created):
-```
+
+```bash
 $ archive-chan g --archived --preserve_media --verbose --path ./downloads/
 
 Dump to 'downloads/g/79745590/thread.json' ...
@@ -75,9 +78,23 @@ Dump to 'downloads/g/76759434/thread.json' ...
 
 Dump to 'downloads/g/79748257/thread.json' ...
     Complete! Elapse 0.004685 sec.
-
 ...
 ```
+
+#### batch download handpicked threads
+
+Create a `.txt` file somewhere and paste a thread URL on each line.
+Then feed it to the URL argument as such:
+
+`archive-chan threads.txt -p -v`
+
+### Tips
+
+* Don't be afraid to ctrl+c and run it again.
+Everything is idempotent and it'll resume from where it left-off.
+* If it looks stuck, it's probably stuck.
+Just rerun it.
+No, I don't know why it hangs so often.
 
 ## Beta
 
@@ -85,3 +102,9 @@ This software is in its early stages.
 Report bugs and contribute if possible.
 
 Come chat with me, other devs, and other users on [gitter.im/archive-chan](https://gitter.im/archive-chan/).
+
+## Dev build
+
+`git clone git@github.com:cardoso-neto/archive-chan.git`
+
+`pip install -e ./`
