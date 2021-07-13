@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
+from requests.exceptions import RequestException
 from flask import Flask, render_template
 
 from ..models import Thread
@@ -24,7 +25,6 @@ class Extractor(ABC):
 
         self.app = Flask("archive-chan", template_folder="./assets/templates/")
         # TODO: fix this relative path; what if user runs outside of repo root?
-        # self.db = Database()  # I'll end up deprecating this?
 
     @classmethod
     def parse_thread_url(cls, thread_url: str) -> Optional[Thread]:
@@ -67,14 +67,21 @@ class Extractor(ABC):
             if verbose:
                 print("Downloading image:", url, file_path.name)
             response = requests_session.get(url, timeout=16)
+            if response.status_code == 404:
+                print(f"{url} could not be found on server.")
+                return
             with open(file_path, "wb") as output:
                 output.write(response.content)
-        except Exception as e:
-            if max_retries > num_retry:
-                print(e, file=sys.stderr)
+        except RequestException as e:
+            print(e, file=sys.stderr)
+            if num_retry > max_retries:
                 print(f"Retry #{num_retry}...")
                 num_retry += 1
                 self.download_file(url, file_path, verbose, max_retries, num_retry)
+            else:
+                m = f"Giving up on {url}; error {response.status_code}."
+                print(m, file=sys.stderr)
+
 
     @abstractmethod
     def download_thread_data():

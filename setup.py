@@ -20,7 +20,7 @@ requirements = read_multiline_as_list("requirements.txt")
 
 setuptools.setup(
     name="archive_chan",
-    version="1.0.0.2021.01.17",
+    version="1.0.2",
     author="Nei Cardoso de Oliveira Neto",
     author_email="nei.neto@hotmail.com",
     description="A fork of LameLemon's archive-chan maintained by cardoso-neto.",
