@@ -16,7 +16,7 @@ with open("README.md", "r") as fh:
 
 requirements = read_multiline_as_list("requirements.txt")
 
-# classifiers = read_multiline_as_list("classifiers.txt")
+classifiers = read_multiline_as_list("classifiers.txt")
 
 setuptools.setup(
     name="archive_chan",
@@ -29,7 +29,7 @@ setuptools.setup(
     url="https://github.com/cardoso-neto/archive-chan",
     packages=setuptools.find_packages(where="src"),
     package_dir={"": "src"},  # not sure if this line should be here
-    # classifiers=classifiers,
+    classifiers=classifiers,
     keywords="archive data-hoarding web 3.0 4chan imageboard",
     entry_points={
         "console_scripts": [
